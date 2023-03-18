@@ -86,6 +86,9 @@ module.exports = {
 		if (!showConsumables) spawnflags += 's';	//hide consumables unless specifically asked for
 		if (!writetofile) spawnflags += 'c';			//if attaching a file is not necessary, enable compact mode
 
+		items = items.replace("‘", "'");
+
+
 		//items with non-english symbols cannot possibly be found, so such inputs can be discarded
 		//also only allows numbers 0-4: the only possible upgrade levels
 		if (!items.match(/^[a-z0-4+',\- ]*$/i)) {

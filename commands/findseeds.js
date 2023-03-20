@@ -3,13 +3,8 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const { instanceCap, defaultSeedsToFind, versionName, noPingRoleId, minSeedsToScan, jarName } = require('../config.json')
 const { rings, wands } = require('../itemlists.json');
-var instances = 0;
-
+const instanceTracker = require('../instancetracker.js');
 const embedColor = 0x2ee62e; //has to be hardcoded here because json won't take this value
-
-function freeInstanceTracker() {
-  return `Free instances: ${instanceCap-instances}`
-}
 
 function executionTimeTracker(stT){
 	return `Execution time: ${(+new Date - stT) / 1000}s`
@@ -52,10 +47,12 @@ module.exports = {
 	async execute(interaction) {
 
 		//the number of concurrent processes is capped to not overload the host
-		if (instances >= instanceCap){
+		if (instanceTracker.full()){
 			await interaction.reply({ content: 'Busy processing previous requests. Please wait for them to finish.', ephemeral: true });
 			return;
 		}
+
+
 
 		//parsing options to normal variables for ease of use
 		let floors =  interaction.options.getInteger('floors');
@@ -79,6 +76,8 @@ module.exports = {
 		var username = interaction.member.roles.cache.has(noPingRoleId) ? interaction.user.username : `<@${interaction.member.id}>`;
 		//we use this to give the tip about long pressing on an embed to copy seed
 		if (interaction.member.presence) userOnMobile = interaction.member.presence.clientStatus.mobile;
+		else userOnMobile = false;
+		let userId = interaction.member.id;
 
 		//string of flags to pass to the process
 		var spawnflags = "q";											//quiet mode enabled to only print seed codes to console
@@ -182,20 +181,26 @@ module.exports = {
 		}
 
 		//finally acknowledging a valid request and assigning an output file to the instance
-		instances++;
-		let outputfile = `scanresults/out${instances}.txt`;
+		instanceName = instanceTracker.getNewInstanceName();
+		let outputfile = `scanresults/out${instanceName}.txt`;
 		console.log(`Request received. Using file ${outputfile}`);
-
-		//initial confirmation, lets the user and discord know the bot isn't dead
-		await interaction.reply({
-			content:`<:examine:1077978273583202445> Looking for ${(seedsToFind > 1) ? (seedsToFind + " seeds") : ("a seed")} ${runesOn ? "__with Forbidden Runes on__ " : ""}up to depth ${floors} with items: ${itemlist.join(", ")}\n`,
-			embeds: [{ description: `${freeInstanceTracker()}. Scanning: ${seedstoscan/1000}k. Starting at: ${startingseed}. Version: ${versionName}`, color: embedColor}]
-		});
 
 		//spawning a child process
 		fs.writeFileSync('in.txt', itemlist.join('\n'));
 		var child = spawn('java', ['-XX:+UnlockExperimentalVMOptions', '-XX:+EnableJVMCI', '-XX:-UseJVMCICompiler', '-jar', jarName, floors, 'all', 'in.txt', outputfile, startingseed, startingseed + seedstoscan, spawnflags]);
-		//var child = spawn('./desktop-1.4.3', [floors, 'all', 'in.txt', outputfile, startingseed, startingseed + seedstoscan, 'q' + (runesOn ? "r" : "")]);
+		child['userId'] = userId;
+		child['instanceCode'] = instanceName;
+
+		//initial confirmation, lets the user and discord know the bot isn't dead
+		await interaction.reply({
+			content:`<:examine:1077978273583202445> Looking for ${(seedsToFind > 1) ? (seedsToFind + " seeds") : ("a seed")} ${runesOn ? "__with Forbidden Runes on__ " : ""}up to depth ${floors} with items: ${itemlist.join(", ")}\n`,
+			embeds: [{ description: `${instanceTracker.freeInstanceTracker()}. Scanning: ${seedstoscan/1000}k. Starting at: ${startingseed}. Version: ${versionName}`, color: embedColor}]
+		});
+
+
+
+		//console.log(instanceList);
+		instanceTracker.addInstance(child);
 		const initialreply = await interaction.fetchReply(); //we fetch the reply here while the child thread is spawning to reply with results later
 
 		//fucking awesome coding practices
@@ -217,12 +222,14 @@ module.exports = {
 
 		//when seedfinder dies for any reason (code 0: finished scanning the seed range, 130: terminated after finding enough seeds)
 		child.on('close', (code) => {
+
+			instanceTracker.freeInstanceName(child.instanceCode);
+
 			let printAsCodeblock = ""
 			if (!writetofile){
 				try { const data = fs.readFileSync(outputfile, 'utf8'); printAsCodeblock = data; } catch (err) {console.error(err);}
 			}
-			console.log(`Request ${instances} completed. Exit code ${code}.`);
-			instances--;
+			console.log(`Request ${instanceName} completed. Exit code ${code}.`);
 
 			let resultEmbedList = [];
 			if (!writetofile) resultEmbedList = [{
@@ -230,12 +237,12 @@ module.exports = {
 				title: seedlist[0],
 				description: printAsCodeblock,
 				fields: [{name: 'Version', value: versionName, inline: true}, {name: 'Items', value: itemlist.join(", "), inline: true}],
-				footer: {text: `${freeInstanceTracker()}. ${executionTimeTracker(startingTime)}`}
+				footer: {text: `${instanceTracker.freeInstanceTracker()}. ${executionTimeTracker(startingTime)}`}
 			}]
 			else resultEmbedList = [{
 				description: `Request: ${itemlist.join(", ")} before floor ${floors}.`,
 				color: embedColor,
-				footer:{text:`${freeInstanceTracker()}. ${executionTimeTracker(startingTime)}. Version: ${versionName}`}
+				footer:{text:`${instanceTracker.freeInstanceTracker()}. ${executionTimeTracker(startingTime)}. Version: ${versionName}`}
 			}]
 
 			if (foundseeds > 0) interaction.channel.send({
@@ -247,12 +254,14 @@ module.exports = {
 			else if (code == 1) interaction.followUp({
 				content: `<:grave:1077978773296791652> Oops! Seedfinder appears to have crashed. <@534750346309009428> <@534750346309009428> <@534750346309009428>\n*${freeInstanceTracker()}*`,
 			})
-
-			else initialreply.reply({
+			//this if check looks unnecessary but it prevents the bot from false triggering on process kills from outside
+			else if (code == 0) initialreply.reply({
 				content: `<:soiled:1077978326695678032> No seeds found by ${username}'s request. Did you spell the item names correctly? If yes, try running the same command again to scan more seeds.`,
 				embeds: resultEmbedList
 			});
 		});
 
 	},
+
+	embedColor
 };

@@ -1,9 +1,9 @@
 const { SlashCommandBuilder } = require('discord.js');
 const { spawn } = require('child_process');
 const fs = require('fs');
-const { instanceCap, defaultSeedsToFind, versionName, noPingRoleId, minSeedsToScan, jarName } = require('../config.json')
+const { instanceCap, defaultSeedsToFind, versionName, noPingRoleId, minSeedsToScan, jarName, ownerId } = require('../config.json')
 const { rings, wands } = require('../itemlists.json');
-const instanceTracker = require('../instancetracker.js');
+const instanceTracker = require('../utils/instancetracker.js');
 const embedColor = 0x2ee62e; //has to be hardcoded here because json won't take this value
 
 function executionTimeTracker(stT){
@@ -40,8 +40,16 @@ module.exports = {
 			.setDescription('Look for seeds compatible with Forbidden Runes. Less SoU affects dungeon generation')
 			.setRequired(false) )
 		.addBooleanOption(option =>
+			option.setName('barren_on')
+			.setDescription('Look for seeds compatible with Barren Lands. Lack of random plants affects generation.')
+			.setRequired(false) )
+		.addBooleanOption(option =>
 			option.setName('show_consumables')
 			.setDescription('Shows consumables. Forces the bot to attach report results as a file')
+			.setRequired(false) )
+		.addBooleanOption(option =>
+			option.setName('longscan')
+			.setDescription('Raises the seeds scanned to 10 million. Abuse earns you a ban.')
 			.setRequired(false) )
     ,
 	async execute(interaction) {
@@ -53,40 +61,51 @@ module.exports = {
 		}
 
 
-
 		//parsing options to normal variables for ease of use
 		let floors =  interaction.options.getInteger('floors');
 		let items = interaction.options.getString('items');
+		let userId = interaction.member.id;
+
+		let longScan = interaction.options.getBoolean('longscan') ?? false;
 		//10x for floor 1, 2x for floors 2-4 and 1x for deeper floors
 		let seedstoscan = (floors<=5) ? minSeedsToScan*2 : minSeedsToScan;
 		if (floors == 1) seedstoscan = minSeedsToScan*10;
+		if (longScan) {
+			seedstoscan = 10000000;
+			if (instanceTracker.checkLongscanUser(userId)){
+					await interaction.reply({ content: 'You already have an ongoing long scan. Use /stop to cancel it to start another.', ephemeral: true });
+					return;
+			}
+		}
+
 		let startingseed =  interaction.options.getInteger('starting_seed') ?? (Math.floor(Math.random() * (5429503678976-seedstoscan)));
 		let seedsToFind = interaction.options.getInteger('seeds_to_find') ?? defaultSeedsToFind;
 		let runesOn = interaction.options.getBoolean('runes_on') ?? false;
+		let barrenOn = interaction.options.getBoolean('barren_on') ?? false;
 		let showConsumables = interaction.options.getBoolean('show_consumables') ?? false;
 
-		//temporary
+
+		//this should be here i forgot why
 		floors++;
 		floors--;
 
-		let writetofile = (floors > 10) || showConsumables || seedsToFind > 1; //if the user is looking for 1 seed less than 10 floors, the output can fit in an embed without a file
+		let writeToFile = (floors > 10) || showConsumables || seedsToFind > 1; //if the user is looking for 1 seed less than 10 floors, the output can fit in an embed without a file
 		var startingTime = +new Date; //a timestamp of receiving the interaction, subtracted from ending timestamp to get execution time
 
-		//establishing how to address the user
+		//establishing how to address the user, mention or nickname
 		var username = interaction.member.roles.cache.has(noPingRoleId) ? interaction.user.username : `<@${interaction.member.id}>`;
 		//we use this to give the tip about long pressing on an embed to copy seed
 		if (interaction.member.presence) userOnMobile = interaction.member.presence.clientStatus.mobile;
 		else userOnMobile = false;
-		let userId = interaction.member.id;
 
 		//string of flags to pass to the process
-		var spawnflags = "q";											//quiet mode enabled to only print seed codes to console
+		var spawnflags = "-q";										//quiet mode enabled to only print seed codes to console
 		if (runesOn) spawnflags += 'r';						//forbidden runes flag
+		if (barrenOn) spawnflags += 'b';					//forbidden runes flag
 		if (!showConsumables) spawnflags += 's';	//hide consumables unless specifically asked for
-		if (!writetofile) spawnflags += 'c';			//if attaching a file is not necessary, enable compact mode
+		if (!writeToFile) spawnflags += 'c';			//if attaching a file is not necessary, enable compact mode
 
 		items = items.replace("‘", "'");
-
 
 		//items with non-english symbols cannot possibly be found, so such inputs can be discarded
 		//also only allows numbers 0-4: the only possible upgrade levels
@@ -95,6 +114,8 @@ module.exports = {
 			return;
 		}
 
+		// let itemlist = itemListLogic.parseItemList(items);
+		// if (!itemListLogic.validateScanItems(itemlist, interaction, floors)) return;
 		//flags that get set during the iteration to discard broken inputs
 		var maxupgradedrings = 0;
 		var maxupgradedwands = 0;
@@ -183,25 +204,27 @@ module.exports = {
 		//finally acknowledging a valid request and assigning an output file to the instance
 		instanceName = instanceTracker.getNewInstanceName();
 		let outputfile = `scanresults/out${instanceName}.txt`;
-		console.log(`Request received. Using file ${outputfile}`);
+		console.log(`finder: New request. Using file ${outputfile}.`);
+		if (longScan) instanceTracker.addLongscanUser(userId);
 
 		//spawning a child process
 		fs.writeFileSync('in.txt', itemlist.join('\n'));
-		var child = spawn('java', ['-XX:+UnlockExperimentalVMOptions', '-XX:+EnableJVMCI', '-XX:-UseJVMCICompiler', '-jar', jarName, floors, 'all', 'in.txt', outputfile, startingseed, startingseed + seedstoscan, spawnflags]);
+		var child = spawn('java', ['-XX:+UnlockExperimentalVMOptions', '-XX:+EnableJVMCI', '-XX:-UseJVMCICompiler', '-jar', jarName, "find", floors, 'all', 'in.txt', outputfile, startingseed, startingseed + seedstoscan, spawnflags]);
 		child['userId'] = userId;
 		child['instanceCode'] = instanceName;
 
 		//initial confirmation, lets the user and discord know the bot isn't dead
 		await interaction.reply({
-			content:`<:examine:1077978273583202445> Looking for ${(seedsToFind > 1) ? (seedsToFind + " seeds") : ("a seed")} ${runesOn ? "__with Forbidden Runes on__ " : ""}up to depth ${floors} with items: ${itemlist.join(", ")}\n`,
+			content:`<:examine:1077978273583202445> Looking for ${(seedsToFind > 1) ? (seedsToFind + " seeds") : ("a seed")}${runesOn ? " __with Forbidden Runes on__" : ""}${barrenOn ? " __with Barren Lands on__" : ""} up to depth ${floors} with items: ${itemlist.join(", ")}\n`,
 			embeds: [{ description: `${instanceTracker.freeInstanceTracker()}. Scanning: ${seedstoscan/1000}k. Starting at: ${startingseed}. Version: ${versionName}`, color: embedColor}]
 		});
 
-
+		const initialreply = await interaction.fetchReply(); //we fetch the reply here while the child thread is spawning to reply with results later
+		child['initialReplyId'] = initialreply.id;
 
 		//console.log(instanceList);
 		instanceTracker.addInstance(child);
-		const initialreply = await interaction.fetchReply(); //we fetch the reply here while the child thread is spawning to reply with results later
+
 
 		//fucking awesome coding practices
 		//gdx logs controllers connecting and disconnecting. one message is logged for creating the window and another for closing it
@@ -220,19 +243,21 @@ module.exports = {
 			}
 		});
 
+
+
 		//when seedfinder dies for any reason (code 0: finished scanning the seed range, 130: terminated after finding enough seeds)
 		child.on('close', (code) => {
-
 			instanceTracker.freeInstanceName(child.instanceCode);
+			if (longScan) instanceTracker.removeLongscanUser(userId);
 
 			let printAsCodeblock = ""
-			if (!writetofile){
+			if (!writeToFile){
 				try { const data = fs.readFileSync(outputfile, 'utf8'); printAsCodeblock = data; } catch (err) {console.error(err);}
 			}
-			console.log(`Request ${instanceName} completed. Exit code ${code}.`);
+			console.log(`finder: Request ${instanceName} completed. Exit code ${code}.`);
 
 			let resultEmbedList = [];
-			if (!writetofile) resultEmbedList = [{
+			if (!writeToFile) resultEmbedList = [{
 				color: embedColor,
 				title: seedlist[0],
 				description: printAsCodeblock,
@@ -245,15 +270,17 @@ module.exports = {
 				footer:{text:`${instanceTracker.freeInstanceTracker()}. ${executionTimeTracker(startingTime)}. Version: ${versionName}`}
 			}]
 
+
 			if (foundseeds > 0) interaction.channel.send({
-				content: `<:firepog:1077978284664561684> Done! Found ${foundseeds} matching seed${foundseeds > 1 ? "s" : ""} ${runesOn ? "(📜 **__FORBIDDEN RUNES ONLY__**) " : ""}by ${username}'s request: ${seedlist.join(", ")}.${(userOnMobile && !writetofile) ? " Long press the seed to copy it to clipboard!" : ""}`,
-				files: writetofile ? [outputfile] : [],
+				content: `<:firepog:1077978284664561684> Done! Found ${foundseeds} matching seed${foundseeds > 1 ? "s" : ""} ${runesOn ? "(📜 **__FORBIDDEN RUNES ONLY__**) " : ""}by ${username}'s request: ${seedlist.join(", ")}.${(userOnMobile && !writeToFile) ? " Long press the seed to copy it to clipboard!" : ""}`,
+				files: writeToFile ? [outputfile] : [],
 				embeds: resultEmbedList
 			});
 
-			else if (code == 1) interaction.followUp({
-				content: `<:grave:1077978773296791652> Oops! Seedfinder appears to have crashed. <@534750346309009428> <@534750346309009428> <@534750346309009428>\n*${freeInstanceTracker()}*`,
-			})
+			else if (code == 1) {
+				interaction.followUp({content: `<:grave:1077978773296791652> Oops! Seedfinder appears to have crashed. <@${ownerId}>\n*${instanceTracker.freeInstanceTracker()}*`});
+				console.log(seedlist);
+			}
 			//this if check looks unnecessary but it prevents the bot from false triggering on process kills from outside
 			else if (code == 0) initialreply.reply({
 				content: `<:soiled:1077978326695678032> No seeds found by ${username}'s request. Did you spell the item names correctly? If yes, try running the same command again to scan more seeds.`,
@@ -262,6 +289,6 @@ module.exports = {
 		});
 
 	},
-
+//this is a module export. it's so funny to me how it's just. a word here
 	embedColor
 };

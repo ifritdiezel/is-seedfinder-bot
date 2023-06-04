@@ -3,3 +3,4 @@ config.json
 scanresults
 desktop*
 in.txt
+*.jar

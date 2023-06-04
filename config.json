@@ -1,0 +1,12 @@
+{
+  "token": "",
+  "instanceCap":3,
+	"defaultSeedsToFind":1,
+	"clientId": "",
+	"guildId": "",
+	"noPingRoleId": "",
+	"minSeedsToScan": 100000,
+	"versionName": "",
+	"jarName": "",
+	"ownerId":""
+}

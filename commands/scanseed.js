@@ -1,6 +1,8 @@
 const { SlashCommandBuilder } = require('discord.js');
 const { spawn } = require('child_process');
-const { versionName, jarName } = require('../config.json');
+const { jarName } = require('../config.json');
+let { versionName } = require('../config.json');
+if (!versionName) versionName = jarName;
 const fs = require('fs');
 const path = require('path');
 

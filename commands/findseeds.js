@@ -1,8 +1,10 @@
 const { SlashCommandBuilder } = require('discord.js');
 const { spawn } = require('child_process');
 const fs = require('fs');
-const { instanceCap, defaultSeedsToFind, versionName, noPingRoleId, minSeedsToScan, jarName, ownerId, errorEmoji } = require('../config.json')
-const responses = require('../responses.json')
+const { instanceCap, defaultSeedsToFind, noPingRoleId, minSeedsToScan, jarName, ownerId, errorEmoji } = require('../config.json');
+let { versionName } = require('../config.json');
+if (!versionName) versionName = jarName;
+const responses = require('../responses.json');
 const { rings, wands, firstWordUpgradables } = require('../itemlists.json');
 const instanceTracker = require('../utils/instancetracker.js');
 const embedColor = 0x2ee62e; //has to be hardcoded here because json won't take this value

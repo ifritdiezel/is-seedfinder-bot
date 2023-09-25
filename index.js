@@ -12,6 +12,11 @@ if (!config.jarName) {
 	process.exit(1);
 }
 
+if (!config.token) {
+	console.log("\x1b[31m■\x1b[0m Please provide a Discord bot token in the config.");
+	process.exit(1);
+}
+
 if (!fs.existsSync(config.jarName)) {
   console.log("\x1b[31m■\x1b[0m No valid seedfinder .jar named '" + config.jarName + "' found! Please download the most recent one at");
 	console.log("\x1b[31m■\x1b[0m https://github.com/ifritdiezel/is-seedfinder/releases");
@@ -22,8 +27,6 @@ if (!fs.existsSync(config.jarName)) {
 if (config.versionName.startsWith("2.0") || config.versionName.startsWith("1.4")) {
 	console.log("\x1b[31m■\x1b[0m This bot version is likely incompatible with this seedfinder version due to argument changes.");
 }
-
-
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildPresences] });
 

@@ -1,0 +1,3 @@
+#!/bin/sh
+cd /home/user/Desktop/server/discord-seedfinder
+npm start

@@ -1,4 +1,5 @@
 {
 	"rings":["ring", "arcana","shooting","accuracy","elements","energy","evasion","force","furor","haste","might","tenacity","wealth"],
-	"wands":["wand", "missile","lightning","disint","fireb","corros","wave,","living eart","frost","prism","ward","transfus","corruption","regrow"]
+	"wands":["wand", "missile","lightning","disint","fireb","corros","wave,","living eart","frost","prism","ward","transfus","corruption","regrow"],
+	"firstWordUpgradables":["ring", "wand", "leather", "mail", "scale", "plate"]
 }

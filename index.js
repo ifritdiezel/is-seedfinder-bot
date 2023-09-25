@@ -1,7 +1,29 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { Client, Collection, Events, GatewayIntentBits } = require('discord.js');
-const { token } = require('./config.json');
+const config = require('./config.json');
+
+if (!fs.existsSync('scanresults')) {
+	console.log("\x1b[31m■\x1b[0m You should run 'node deploy-commands.js' to enable the commands first.");
+}
+
+if (!config.jarName) {
+	console.log("\x1b[31m■\x1b[0m Please specify the name of the seedfinder .jar in the config.");
+	process.exit(1);
+}
+
+if (!fs.existsSync(config.jarName)) {
+  console.log("\x1b[31m■\x1b[0m No valid seedfinder .jar named '" + config.jarName + "' found! Please download the most recent one at");
+	console.log("\x1b[31m■\x1b[0m https://github.com/ifritdiezel/is-seedfinder/releases");
+	console.log("\x1b[31m■\x1b[0m then place in the bot directory and specify its name in the config!");
+	process.exit(1);
+}
+
+if (config.versionName.startsWith("2.0") || config.versionName.startsWith("1.4")) {
+	console.log("\x1b[31m■\x1b[0m This bot version is likely incompatible with this seedfinder version due to argument changes.");
+}
+
+
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildPresences] });
 
@@ -17,6 +39,8 @@ for (const file of commandFiles) {
 
 client.once(Events.ClientReady, () => {
 	console.log('Ready!');
+	workingchannel = client.channels.cache.get('1071308340124200963');
+  //workingchannel.send('');
 });
 
 client.on(Events.InteractionCreate, async interaction => {
@@ -34,4 +58,4 @@ client.on(Events.InteractionCreate, async interaction => {
 	}
 });
 
-client.login(token);
+client.login(config.token);

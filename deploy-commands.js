@@ -1,6 +1,22 @@
 const { REST, Routes } = require('discord.js');
 const { clientId, guildId, token } = require('./config.json');
 const fs = require('node:fs');
+const config = require('./config.json')
+
+if (!guildId) {
+	console.log("\x1b[31m■\x1b[0m The ID of your guild is required in the config to deploy commands.");
+	process.exit(1);
+}
+
+if (!clientId) {
+	console.log("\x1b[31m■\x1b[0m The ID of the client is required in the config to deploy commands.");
+	process.exit(1);
+}
+
+
+if (!fs.existsSync('scanresults')){
+    fs.mkdirSync('scanresults');
+}
 
 const commands = [];
 // Grab all the command files from the commands directory you created earlier

@@ -6,6 +6,10 @@ module.exports = {
 		.setName('toggle_pings')
 		.setDescription('Makes the bot not ping you. Use this again to turn pings back on.'),
 	async execute(interaction) {
+		if (!noPingRoleId){
+			await interaction.reply({ content: 'The owner must specify an assignable role in the bot config to enable this command.' });
+			return;
+		}
 		const member = interaction.member;
 
 		if (member.roles.cache.has(noPingRoleId)) {

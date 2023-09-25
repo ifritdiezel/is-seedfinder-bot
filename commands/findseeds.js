@@ -1,13 +1,36 @@
 const { SlashCommandBuilder } = require('discord.js');
 const { spawn } = require('child_process');
 const fs = require('fs');
-const { instanceCap, defaultSeedsToFind, versionName, noPingRoleId, minSeedsToScan, jarName, ownerId } = require('../config.json')
-const { rings, wands } = require('../itemlists.json');
+const { instanceCap, defaultSeedsToFind, versionName, noPingRoleId, minSeedsToScan, jarName, ownerId, errorEmoji } = require('../config.json')
+const responses = require('../responses.json')
+const { rings, wands, firstWordUpgradables } = require('../itemlists.json');
 const instanceTracker = require('../utils/instancetracker.js');
 const embedColor = 0x2ee62e; //has to be hardcoded here because json won't take this value
 
 function executionTimeTracker(stT){
-	return `Execution time: ${(+new Date - stT) / 1000}s`
+	let seconds = Math.round((+new Date - stT) / 1000);
+	let result = "";
+
+	let interval = seconds / 3600;
+  if (interval > 1) result += (Math.floor(interval) + "h");
+
+  interval = seconds / 60;
+  if (interval > 1) result += (Math.floor(interval) + "m");
+
+  if (seconds % 60) result += (seconds % 60 + "s");
+
+	return `Execution time: ${result}`
+}
+
+function handleError(status, interaction){
+	if (!status) return;
+	let errorcode = status.split(':')[0];
+	let baditem = status.split(':')[1];
+	console.log(`\x1b[1;33m■\x1b[0m finder: Rejecting request by ${interaction.user.username}. Error: ${errorcode}.`);
+	console.log('\x1b[1;33m■\x1b[0m finder: Faulty request: ' + interaction.options.getString('items'));
+	if (baditem) console.log('\x1b[1;33m■\x1b[0m finder: Bad item: ' + baditem);
+	interaction.reply({ content: errorEmoji + " " + responses[errorcode] + (baditem ? `\nIncorrect item: **${baditem}**` : ""), ephemeral: true });
+	return true;
 }
 
 module.exports = {
@@ -28,7 +51,7 @@ module.exports = {
       option.setName('starting_seed')
      .setDescription('The number of the seed to start with. Can be found in detailed reports')
      .setMinValue(0)
-		 .setMaxValue(5429503678976))
+		 .setMaxValue(5429503678975))
 		.addIntegerOption(option =>
  		  option.setName('seeds_to_find')
  			.setDescription('How many seeds the bot should try to find before stopping')
@@ -37,7 +60,11 @@ module.exports = {
       .setMaxValue(10) )
 		.addBooleanOption(option =>
 			option.setName('runes_on')
-			.setDescription('Look for seeds compatible with Forbidden Runes. Less SoU affects dungeon generation')
+			.setDescription('Look for seeds compatible with Forbidden Runes. Less SoU affects dungeon generation.')
+			.setRequired(false) )
+		.addBooleanOption(option =>
+			option.setName('darkness_on')
+			.setDescription('Look for seeds compatible with Into Darkness. Extra torches affect dungeon generation.')
 			.setRequired(false) )
 		.addBooleanOption(option =>
 			option.setName('barren_on')
@@ -45,25 +72,26 @@ module.exports = {
 			.setRequired(false) )
 		.addBooleanOption(option =>
 			option.setName('show_consumables')
-			.setDescription('Shows consumables. Forces the bot to attach report results as a file')
+			.setDescription('Shows consumables. Forces the bot to attach report results as a file.')
 			.setRequired(false) )
 		.addBooleanOption(option =>
 			option.setName('longscan')
-			.setDescription('Raises the seeds scanned to 10 million. Abuse earns you a ban.')
+			.setDescription('Raises the seeds scanned to 10 million. Make sure you made no typos!')
 			.setRequired(false) )
     ,
 	async execute(interaction) {
 
+		var errorstatus = "";
+
 		//the number of concurrent processes is capped to not overload the host
 		if (instanceTracker.full()){
-			await interaction.reply({ content: 'Busy processing previous requests. Please wait for them to finish.', ephemeral: true });
+			handleError("busy", interaction);
 			return;
 		}
 
-
 		//parsing options to normal variables for ease of use
 		let floors =  interaction.options.getInteger('floors');
-		let items = interaction.options.getString('items');
+		let items = interaction.options.getString('items').toLowerCase();
 		let userId = interaction.member.id;
 
 		let longScan = interaction.options.getBoolean('longscan') ?? false;
@@ -73,7 +101,7 @@ module.exports = {
 		if (longScan) {
 			seedstoscan = 10000000;
 			if (instanceTracker.checkLongscanUser(userId)){
-					await interaction.reply({ content: 'You already have an ongoing long scan. Use /stop to cancel it to start another.', ephemeral: true });
+					handleError("longScanOngoing", interaction);
 					return;
 			}
 		}
@@ -82,18 +110,14 @@ module.exports = {
 		let seedsToFind = interaction.options.getInteger('seeds_to_find') ?? defaultSeedsToFind;
 		let runesOn = interaction.options.getBoolean('runes_on') ?? false;
 		let barrenOn = interaction.options.getBoolean('barren_on') ?? false;
+		let darknessOn = interaction.options.getBoolean('darkness_on') ?? false;
 		let showConsumables = interaction.options.getBoolean('show_consumables') ?? false;
-
-
-		//this should be here i forgot why
-		floors++;
-		floors--;
 
 		let writeToFile = (floors > 10) || showConsumables || seedsToFind > 1; //if the user is looking for 1 seed less than 10 floors, the output can fit in an embed without a file
 		var startingTime = +new Date; //a timestamp of receiving the interaction, subtracted from ending timestamp to get execution time
 
 		//establishing how to address the user, mention or nickname
-		var username = interaction.member.roles.cache.has(noPingRoleId) ? interaction.user.username : `<@${interaction.member.id}>`;
+		var username = (noPingRoleId && interaction.member.roles.cache.has(noPingRoleId)) ? interaction.user.username : `<@${interaction.member.id}>`;
 		//we use this to give the tip about long pressing on an embed to copy seed
 		if (interaction.member.presence) userOnMobile = interaction.member.presence.clientStatus.mobile;
 		else userOnMobile = false;
@@ -101,41 +125,50 @@ module.exports = {
 		//string of flags to pass to the process
 		var spawnflags = "-q";										//quiet mode enabled to only print seed codes to console
 		if (runesOn) spawnflags += 'r';						//forbidden runes flag
-		if (barrenOn) spawnflags += 'b';					//forbidden runes flag
+		if (barrenOn) spawnflags += 'b';					//barren lands flag
+		if (darknessOn) spawnflags += 'd';				//into darkness flag
 		if (!showConsumables) spawnflags += 's';	//hide consumables unless specifically asked for
 		if (!writeToFile) spawnflags += 'c';			//if attaching a file is not necessary, enable compact mode
 
-		items = items.replace("‘", "'");
-
 		//items with non-english symbols cannot possibly be found, so such inputs can be discarded
 		//also only allows numbers 0-4: the only possible upgrade levels
-		if (!items.match(/^[a-z0-4+',\- ]*$/i)) {
-			await interaction.reply({ content: '<:surprise:1077978332798402570> Item names have to be accurate to their names in English in Shattered PD and upgrade levels can only be 0-4.', ephemeral: true });
-			return;
-		}
+		items = items.replaceAll('’', "'");
+
+		if (!items.match(/^[a-z0-4+',\- ]*$/i)) errorstatus ="badSymbols";
+		if (items.includes("cursed")) errorstatus = "containsCursed";
+		if (items.includes("enchantment") && floors == 1) errorstatus = "floorOneEnchantment";
+		if (items.includes("energy crystal") && floors == 1) errorstatus = "floorOneAlchemy";
+		if (handleError(errorstatus, interaction)) return;
 
 		// let itemlist = itemListLogic.parseItemList(items);
 		// if (!itemListLogic.validateScanItems(itemlist, interaction, floors)) return;
 		//flags that get set during the iteration to discard broken inputs
 		var maxupgradedrings = 0;
 		var maxupgradedwands = 0;
-		var startswithplus = false;
-		var overUpgraded = false;
-		var hasQuestItem = items.includes("corpse") || items.includes("dust") || items.includes("embers" || items.includes("rotberry"));
+		var hasQuestItem = items.includes("corpse") || items.includes("dust") || items.includes("embers") || items.includes("rotberry") || items.includes("candle");
 
 		//we iterate over every submitted item and runs checks on them
 		//after which they're added to an array so they can be later joined with different separators as needed
 		let itemlist = [];
 		items.split(',').forEach(element => {
-			let curItem = element.trim().toLowerCase(); //this makes the input case insensitive
-			if (curItem.startsWith('+') && curItem.length > 2) startswithplus = true; //todo make misplaced upgrades automatically correct
+			let curItem = element.trim();
+			if (curItem.startsWith('+') && curItem.length > 2) errorstatus = "startsWithPlus:"+ curItem; //todo make misplaced upgrades automatically correct
 
 			let splitbyupgrades = curItem.split("+"); //item name, upgrade level
-			let upgradeLevel = splitbyupgrades.at(-1);
-			if (curItem.includes("+")) curItem = (splitbyupgrades[0].trim() + " +" + splitbyupgrades[1]); //makes sure there's 1 space between the item name and level
-			if (curItem.includes("0")) curItem = splitbyupgrades[0]; //inputs with +0 in them are treated as just unupgraded items
+			if (splitbyupgrades.length > 2) errorstatus = "unseparated:" + curItem;
 
-			itemlist.push(curItem);
+			let upgradeLevel = splitbyupgrades.at(-1);
+			let itemName = splitbyupgrades[0].trim();
+
+			if (curItem.includes("+")) {
+				curItem = (itemName + " +" + upgradeLevel); //makes sure there's 1 space between the item name and level
+				if (curItem.includes("0")) curItem = itemName; //inputs with +0 in them are treated as just unupgraded items
+				if (firstWordUpgradables.includes(itemName)) errorstatus = "wrongUpgradeSyntax:"+ curItem;
+			}
+			if (itemName.length > 30 || itemName.split(' ').length > 4) errorstatus = "unseparated:"+ curItem;
+			if (itemName.split(' ').length == 1 && itemName.length > 14) errorstatus = "missingSpaces:"+ curItem;
+
+			if (curItem) itemlist.push(curItem);
 
 			if (upgradeLevel > 2){
 				//counting how many rings of high level we're looking for
@@ -143,6 +176,8 @@ module.exports = {
 				for (let ringname of rings){
 					if (curItem.includes(ringname)) {
 						isRing = true;
+						if (maxupgradedrings) errorstatus = "tooManyHighRings";
+						if (floors < 17) errorstatus = "maxRingTooEarly";
 						maxupgradedrings++;
 						break;
 					}
@@ -150,73 +185,48 @@ module.exports = {
 				//counting how many wands of high level we're looking for
 				for (let wandname of wands){
 					if (curItem.includes(wandname)) {
+						if (maxupgradedwands) errorstatus = "tooManyHighWands";
+						if (hasQuestItem) errorstatus = "questItemAndWandmakerWand";
+						if (floors < 7) errorstatus = "maxWandTooEarly";
 						maxupgradedwands++;
 						break;
 					}
 				};
 
-				if (upgradeLevel > 3) overUpgraded = true; //could be merged with the line below but then it couldn't handle numbers over 4
-				if ((upgradeLevel == 4) && isRing) overUpgraded = false; //rings can be +4 as imp reward
+				if ((upgradeLevel > 3) && !(isRing && (upgradeLevel == 4))) errorstatus = "overUpgraded:"+ curItem; //could be merged with the line below but then it couldn't handle numbers over 4
 
 			}
 		});
-
-		//item upgrade level restriction
-		if (overUpgraded){
-			await interaction.reply({ content: `<:surprise:1077978332798402570> Rings are the only item that can be +4 as a reward from Imp. Others are limited to +3.`, ephemeral: true });
-			return;
-		}
-
-		if (hasQuestItem && maxupgradedwands){
-			await interaction.reply({ content: `<:surprise:1077978332798402570> You cannot get both a +3 wand and a Wandmaker quest item.`, ephemeral: true });
-			return;
-		}
-
-		//it's only possible to get 1 ring of >+2 from imp and 1 wand of >+2 from wandmaker
-		if (maxupgradedrings > 1){
-			await interaction.reply({ content: `<:surprise:1077978332798402570> It's only possible to find one ring of +3 and above as a reward from Imp.`, ephemeral: true });
-			return;
-		}
-		if (maxupgradedwands > 1){
-			await interaction.reply({ content: `<:surprise:1077978332798402570> It's only possible to find one wand above +2 as a reward from the Wandmaker.`, ephemeral: true });
-			return;
-		}
-
-		//wands and rings >+2 can only be obtained from their respective quests
-		if (floors < 7 && maxupgradedwands){
-			await interaction.reply({ content: `<:surprise:1077978332798402570> You can only get +3 wands from the Wandmaker, who spawns on depths 7-9.`, ephemeral: true });
-			return;
-		}
-		if (floors < 7 && hasQuestItem){
-			await interaction.reply({ content: `<:surprise:1077978332798402570> You can only get Wandmaker quest items on depths 7-9.`, ephemeral: true });
-			return;
-		}
-		if (floors < 17 && maxupgradedrings){
-			await interaction.reply({ content: `<:surprise:1077978332798402570> You can only get +3 and above rings from the Imp, who spawns on depths 17-19.`, ephemeral: true });
-			return;
-		}
-
-		if (startswithplus){
-			await interaction.reply({ content: '<:surprise:1077978332798402570> Sorry, the upgrade level has to be *after* the item name. For example: `shortsword +2` or `mail armor of affection +3`. ', ephemeral: true });
-			return;
-		}
+		if (floors < 7 && hasQuestItem) errorstatus = "questItemTooEarly";
+		if (handleError(errorstatus, interaction)) return;
 
 		//finally acknowledging a valid request and assigning an output file to the instance
 		instanceName = instanceTracker.getNewInstanceName();
 		let outputfile = `scanresults/out${instanceName}.txt`;
-		console.log(`finder: New request. Using file ${outputfile}.`);
+		console.log(`\x1b[32m■\x1b[0m finder: New request. Using file ${outputfile}.`);
 		if (longScan) instanceTracker.addLongscanUser(userId);
 
 		//spawning a child process
 		fs.writeFileSync('in.txt', itemlist.join('\n'));
-		var child = spawn('java', ['-XX:+UnlockExperimentalVMOptions', '-XX:+EnableJVMCI', '-XX:-UseJVMCICompiler', '-jar', jarName, "find", floors, 'all', 'in.txt', outputfile, startingseed, startingseed + seedstoscan, spawnflags]);
+		var child = spawn('java', ['-XX:+UnlockExperimentalVMOptions', '-XX:+EnableJVMCI', '-XX:-UseJVMCICompiler', '-jar', jarName, "-mode", "find", '-floors', floors, '-items', 'in.txt', '-output', outputfile, '-start', startingseed, '-end', startingseed + seedstoscan, '-seeds', seedsToFind, spawnflags]);
+
 		child['userId'] = userId;
 		child['instanceCode'] = instanceName;
+		child['floors'] = floors;
+		child['items'] = itemlist;
+
+		let findBeginEmbeds = [{ description: `${instanceTracker.freeInstanceTracker()}. Scanning: ${seedstoscan/1000}k. Starting at: ${startingseed}. Version: ${versionName}`, color: embedColor}];
+		if (floors == 1 && itemlist.length > 2) findBeginEmbeds.push(
+			{
+				color: embedColor,
+				description: "Floor 1 usually contains very few items. Raising the floor limit will make finding the seed much more likely."
+			}
+		);
 
 		//initial confirmation, lets the user and discord know the bot isn't dead
 		await interaction.reply({
 			content:`<:examine:1077978273583202445> Looking for ${(seedsToFind > 1) ? (seedsToFind + " seeds") : ("a seed")}${runesOn ? " __with Forbidden Runes on__" : ""}${barrenOn ? " __with Barren Lands on__" : ""} up to depth ${floors} with items: ${itemlist.join(", ")}\n`,
-			embeds: [{ description: `${instanceTracker.freeInstanceTracker()}. Scanning: ${seedstoscan/1000}k. Starting at: ${startingseed}. Version: ${versionName}`, color: embedColor}]
+			embeds: findBeginEmbeds
 		});
 
 		const initialreply = await interaction.fetchReply(); //we fetch the reply here while the child thread is spawning to reply with results later
@@ -237,13 +247,7 @@ module.exports = {
 			if (foundseeds > 0) {
 				seedlist.push(`${data}`);
 			}
-			//force stop when enough seeds are found
-			if (foundseeds >= seedsToFind) {
-				child.kill('SIGINT');
-			}
 		});
-
-
 
 		//when seedfinder dies for any reason (code 0: finished scanning the seed range, 130: terminated after finding enough seeds)
 		child.on('close', (code) => {
@@ -254,7 +258,7 @@ module.exports = {
 			if (!writeToFile){
 				try { const data = fs.readFileSync(outputfile, 'utf8'); printAsCodeblock = data; } catch (err) {console.error(err);}
 			}
-			console.log(`finder: Request ${instanceName} completed. Exit code ${code}.`);
+			console.log(`\x1b[32m■\x1b[0m finder: Request ${instanceName} completed. Exit code ${code}.`);
 
 			let resultEmbedList = [];
 			if (!writeToFile) resultEmbedList = [{
@@ -270,9 +274,17 @@ module.exports = {
 				footer:{text:`${instanceTracker.freeInstanceTracker()}. ${executionTimeTracker(startingTime)}. Version: ${versionName}`}
 			}]
 
+			// just some warning code i might reuse later
+			if (foundseeds > 0) resultEmbedList.push(
+				{
+					color: 0xf5dd0a,
+					description: `Th${(foundseeds > 1) ?'ese':'is'} seed${(foundseeds > 1) ?'s are':' is'} incompatible with Shattered PD Beta! Seedfinder will be updated when the release is out.`
+				}
+			);
+
 
 			if (foundseeds > 0) interaction.channel.send({
-				content: `<:firepog:1077978284664561684> Done! Found ${foundseeds} matching seed${foundseeds > 1 ? "s" : ""} ${runesOn ? "(📜 **__FORBIDDEN RUNES ONLY__**) " : ""}by ${username}'s request: ${seedlist.join(", ")}.${(userOnMobile && !writeToFile) ? " Long press the seed to copy it to clipboard!" : ""}`,
+				content: `<:firepog:1077978284664561684> Done! Found ${foundseeds} matching seed${foundseeds > 1 ? "s" : ""} ${(runesOn | barrenOn | darknessOn) ? "(**__SOME CHALLENGES ON__**) " : ""}by ${username}'s request: ${seedlist.join(", ")}.${(userOnMobile && !writeToFile) ? " Long press the seed to copy it to clipboard!" : ""}`,
 				files: writeToFile ? [outputfile] : [],
 				embeds: resultEmbedList
 			});
@@ -283,7 +295,7 @@ module.exports = {
 			}
 			//this if check looks unnecessary but it prevents the bot from false triggering on process kills from outside
 			else if (code == 0) initialreply.reply({
-				content: `<:soiled:1077978326695678032> No seeds found by ${username}'s request. Did you spell the item names correctly? If yes, try running the same command again to scan more seeds.`,
+				content: `<:soiled:1077978326695678032> No seeds match in scanned range requested by ${username}. Try the same request again to scan more seeds. Also check for misspellings/typos.`,
 				embeds: resultEmbedList
 			});
 		});

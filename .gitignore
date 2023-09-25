@@ -3,4 +3,5 @@ config.json
 scanresults
 desktop*
 in.txt
+/commands/shutdown.js
 *.jar

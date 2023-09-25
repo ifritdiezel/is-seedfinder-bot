@@ -52,8 +52,8 @@ exports.getNewInstanceName = function(){
 }
 
 exports.freeInstanceName = function(name){
-	console.log("tracker: returning instance " + name)
+	//console.log("\x1b[32m■\x1b[0m tracker: returning instance " + name)
 	_instanceNameList.push(name);
 	_instanceList = _instanceList.filter(iinstance => iinstance.instanceCode != name);
-	console.log("tracker: new instance list: " + _instanceNameList);
+	//console.log("\x1b[32m■\x1b[0m tracker: new instance list: " + _instanceNameList);
 }

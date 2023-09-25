@@ -1,0 +1,20 @@
+{
+	"busy": "Busy processing previous requests. Please wait for them to finish.",
+	"longScanOngoing":"You already have an ongoing long scan. Use /stop to cancel it to start another.",
+	"badSymbols": "Item names have to be accurate to their names in English in Shattered PD and upgrade levels can only be 0-4. See the item name list in <#1071310673960771674>.",
+	"containsCursed": "Sorry, specifically cursed/uncursed items cannot currently be found by specifying \"cursed\" as the word isn't part of the item name in-game.",
+	"unseparated": "The list of items needs to be separated with commas.",
+	"missingSpaces": "An item appears to be missing spaces in the name. See the item name list in <#1071310673960771674>.",
+	"overUpgraded": "Rings are the only item that can be +4 as a reward from Imp. Other ones are limited to +3.",
+	"startsWithPlus": "Sorry, the upgrade level has to be *after* the item name. For example: `shortsword +2` or `mail armor of affection +3`.",
+	"tooManyHighRings":"It's only possible to find one ring of +3 and above as a reward from Imp.",
+	"tooManyHighWands":"It's only possible to find one wand above +2 as a reward from the Wandmaker.",
+	"questItemAndWandmakerWand":"You cannot get both a +3 wand and a Wandmaker quest item.",
+	"maxRingTooEarly":"You can only get +3 and above rings from the Imp, who spawns on depths 17-19.",
+	"maxWandTooEarly":"You can only get +3 wands from the Wandmaker, who spawns on depths 7-9.",
+	"questItemTooEarly":"You can only get Wandmaker quest items on depths 7-9.",
+	"wrongUpgradeSyntax":"Invalid upgraded item. Please refer to <#1071310673960771674> examples.",
+	"debug":"Test error message. You're not supposed to be seeing this.",
+	"floorOneEnchantment":"Stones of enchantment can only naturally generate in hidden rooms behind bookshelves and there cannot be hidden rooms on floor 1.",
+	"floorOneAlchemy":"Alchemy pot rooms cannot generate on floor 1."
+}

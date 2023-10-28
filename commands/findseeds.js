@@ -277,12 +277,12 @@ module.exports = {
 			}]
 
 			// just some warning code i might reuse later
-			if (foundseeds > 0) resultEmbedList.push(
-				{
-					color: 0xf5dd0a,
-					description: `Th${(foundseeds > 1) ?'ese':'is'} seed${(foundseeds > 1) ?'s are':' is'} incompatible with Shattered PD Beta! Seedfinder will be updated when the release is out.`
-				}
-			);
+			// if (foundseeds > 0) resultEmbedList.push(
+			// 	{
+			// 		color: 0xf5dd0a,
+			// 		description: `Th${(foundseeds > 1) ?'ese':'is'} seed${(foundseeds > 1) ?'s are':' is'} incompatible with Shattered PD Beta! Seedfinder will be updated when the release is out.`
+			// 	}
+			// );
 
 
 			if (foundseeds > 0) interaction.channel.send({

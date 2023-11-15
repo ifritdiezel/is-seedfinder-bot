@@ -18,15 +18,15 @@ module.exports = {
 		 .setMaxValue(5429503678976))
 		 .addBooleanOption(option =>
 			 option.setName('runes_on')
-			 .setDescription('Scan with Forbidden Runes on. Less SoU affects dungeon generation')
+			 .setDescription('Enable Forbidden Runes.')
 			 .setRequired(false) )
 		 .addBooleanOption(option =>
 				option.setName('darkness_on')
-				.setDescription('Scan with Into Darkness on. Extra torches affect dungeon generation')
+				.setDescription('Enable Into Darkness.')
 				.setRequired(false) )
 		 .addBooleanOption(option =>
 			 option.setName('barren_on')
-			 .setDescription('Scan with Barren Lands on. Lack of random plants affects generation.')
+			 .setDescription('Enable Barren Lands.')
 			 .setRequired(false) ),
 		 async execute(interaction) {
 

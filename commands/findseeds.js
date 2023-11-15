@@ -17,7 +17,7 @@ function executionTimeTracker(stT){
   if (interval > 1) result += (Math.floor(interval) + "h");
 
   interval = seconds / 60;
-  if (interval > 1) result += (Math.floor(interval) + "m");
+  if (interval > 1) result += (Math.floor(interval) % 60 + "m");
 
   if (seconds % 60) result += (seconds % 60 + "s");
 
@@ -62,15 +62,15 @@ module.exports = {
       .setMaxValue(10) )
 		.addBooleanOption(option =>
 			option.setName('runes_on')
-			.setDescription('Look for seeds compatible with Forbidden Runes. Less SoU affects dungeon generation.')
+			.setDescription('Enable Forbidden Runes.')
 			.setRequired(false) )
 		.addBooleanOption(option =>
 			option.setName('darkness_on')
-			.setDescription('Look for seeds compatible with Into Darkness. Extra torches affect dungeon generation.')
+			.setDescription('Enable Into Darkness.')
 			.setRequired(false) )
 		.addBooleanOption(option =>
 			option.setName('barren_on')
-			.setDescription('Look for seeds compatible with Barren Lands. Lack of random plants affects generation.')
+			.setDescription('Enable Barren Lands.')
 			.setRequired(false) )
 		.addBooleanOption(option =>
 			option.setName('show_consumables')

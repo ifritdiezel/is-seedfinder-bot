@@ -5,7 +5,7 @@ const { instanceCap, defaultSeedsToFind, noPingRoleId, minSeedsToScan, jarName, 
 let { versionName } = require('../config.json');
 if (!versionName) versionName = jarName;
 const responses = require('../responses.json');
-const { rings, wands, firstWordUpgradables } = require('../itemlists.json');
+const itemlists = require('../itemlists.json');
 const instanceTracker = require('../utils/instancetracker.js');
 const embedColor = 0x2ee62e; //has to be hardcoded here because json won't take this value
 
@@ -77,6 +77,10 @@ module.exports = {
 			.setDescription('Shows consumables. Forces the bot to attach report results as a file.')
 			.setRequired(false) )
 		.addBooleanOption(option =>
+			option.setName('disable_autocorrect')
+			.setDescription('The bot will no longer attempt to fix item names.')
+			.setRequired(false) )
+		.addBooleanOption(option =>
 			option.setName('longscan')
 			.setDescription('Raises the seeds scanned to 10 million. Make sure you made no typos!')
 			.setRequired(false) )
@@ -114,6 +118,7 @@ module.exports = {
 		let barrenOn = interaction.options.getBoolean('barren_on') ?? false;
 		let darknessOn = interaction.options.getBoolean('darkness_on') ?? false;
 		let showConsumables = interaction.options.getBoolean('show_consumables') ?? false;
+		let disableAutocorrect = interaction.options.getBoolean('disable_autocorrect') ?? false;
 
 		let writeToFile = (floors > 10) || showConsumables || seedsToFind > 1; //if the user is looking for 1 seed less than 10 floors, the output can fit in an embed without a file
 		var startingTime = +new Date; //a timestamp of receiving the interaction, subtracted from ending timestamp to get execution time
@@ -129,21 +134,23 @@ module.exports = {
 		if (runesOn) spawnflags += 'r';						//forbidden runes flag
 		if (barrenOn) spawnflags += 'b';					//barren lands flag
 		if (darknessOn) spawnflags += 'd';				//into darkness flag
-		if (!showConsumables) spawnflags += 's';	//hide consumables unless specifically asked for
+																							//show consumables flag is enabled conditionally below
 		if (!writeToFile) spawnflags += 'c';			//if attaching a file is not necessary, enable compact mode
+
+
+		items = items.replaceAll('’', "'"); //fixing some commonly misused symbols
+		items = items.replaceAll('.', ",");
+		items = items.replaceAll('\n', ",");
 
 		//items with non-english symbols cannot possibly be found, so such inputs can be discarded
 		//also only allows numbers 0-4: the only possible upgrade levels
-		items = items.replaceAll('’', "'");
-
 		if (!items.match(/^[a-z0-4+',\- ]*$/i)) errorstatus ="badSymbols";
 		if (items.includes("cursed")) errorstatus = "containsCursed";
 		if (items.includes("enchantment") && floors == 1) errorstatus = "floorOneEnchantment";
+		if (items.includes("shat") && floors == 1) errorstatus = "floorOneShatteredHoneypot";
 		if (items.includes("energy crystal") && floors == 1) errorstatus = "floorOneAlchemy";
 		if (handleError(errorstatus, interaction)) return;
 
-		// let itemlist = itemListLogic.parseItemList(items);
-		// if (!itemListLogic.validateScanItems(itemlist, interaction, floors)) return;
 		//flags that get set during the iteration to discard broken inputs
 		var maxupgradedrings = 0;
 		var maxupgradedwands = 0;
@@ -152,9 +159,15 @@ module.exports = {
 		//we iterate over every submitted item and runs checks on them
 		//after which they're added to an array so they can be later joined with different separators as needed
 		let itemlist = [];
+		let ambiguousitems = [];
+		let autocorrectUsed = false;
+		let hasConsumable = false;
 		items.split(',').forEach(element => {
 			let curItem = element.trim();
-			if (curItem.startsWith('+') && curItem.length > 2) errorstatus = "startsWithPlus:"+ curItem; //todo make misplaced upgrades automatically correct
+
+			//if (curItem.startsWith('+') && curItem.length > 2) errorstatus = "startsWithPlus:"+ curItem;
+
+
 
 			let splitbyupgrades = curItem.split("+"); //item name, upgrade level
 			if (splitbyupgrades.length > 2) errorstatus = "unseparated:" + curItem;
@@ -162,20 +175,144 @@ module.exports = {
 			let upgradeLevel = splitbyupgrades.at(-1);
 			let itemName = splitbyupgrades[0].trim();
 
+			if (curItem.startsWith('+')){
+				if (curItem[1] && curItem[1].match(/[0-4]/)) {
+					upgradeLevel = curItem[1];
+					itemName = curItem.slice(2).trim();
+				} else {
+					itemName = curItem.slice(1).trim();
+					upgradeLevel = "";
+				}
+			}
+
+			if (itemName.match(/[0-4]/g)) errorstatus ="excessNumbers:" + curItem; //verifying there's no excessive numbers left in the item name
+
+			let beforeAutocorrectItemName = itemName;
+			if (!disableAutocorrect) {
+				let enchantment = "";
+
+				for (let artifactname of Object.keys(itemlists.artifacts)){
+					if (itemName.includes(artifactname)){
+						itemName = itemlists.artifacts[artifactname];
+						if (beforeAutocorrectItemName != itemName) autocorrectUsed = true;
+						break;
+					};
+				};
+
+				for (let enchantmentname of Object.keys(itemlists.enchantments)){
+					if (itemName.includes(enchantmentname)){
+						enchantment = itemlists.enchantments[enchantmentname] + ' ';
+						break;
+					};
+				};
+
+				let glyph = "";
+				for (let glyphname of Object.keys(itemlists.glyphs)){
+					if (itemName.includes(glyphname)){
+						glyph = ' of ' + itemlists.glyphs[glyphname];
+						break;
+					};
+				};
+
+				for (let armorname of Object.keys(itemlists.armor)){
+					if (itemName.includes(armorname)){
+						itemName = itemlists.armor[armorname] + glyph;
+						if (beforeAutocorrectItemName != itemName) autocorrectUsed = true;
+						break;
+					};
+				};
+
+				for (let weaponname of Object.keys(itemlists.weapons)){
+					if (itemName.includes(weaponname)){
+						itemName = enchantment + itemlists.weapons[weaponname];
+						if (beforeAutocorrectItemName != itemName) autocorrectUsed = true;
+						break;
+					};
+				};
+
+				for (let ringname of Object.keys(itemlists.rings)){
+					if (itemName.includes(ringname)){
+						itemName = "ring of " + itemlists.rings[ringname];
+						if (beforeAutocorrectItemName != itemName) autocorrectUsed = true;
+						break;
+					};
+				};
+
+				for (let wandname of Object.keys(itemlists.wands)){
+					if (itemName.includes(wandname)){
+						itemName = "wand of " + itemlists.wands[wandname];
+						if (beforeAutocorrectItemName != itemName) autocorrectUsed = true;
+						break;
+					};
+				};
+
+				for (let potionname of Object.keys(itemlists.potions)){
+					if (itemName.includes(potionname)){
+						itemName = "potion of " + itemlists.potions[potionname];
+						if (beforeAutocorrectItemName != itemName) autocorrectUsed = true;
+						hasConsumable = true;
+						break;
+					};
+				};
+				for (let scrollname of Object.keys(itemlists.scrolls)){
+					if (itemName.includes(scrollname)){
+						itemName = "scroll of " + itemlists.scrolls[scrollname];
+						if (beforeAutocorrectItemName != itemName) autocorrectUsed = true;
+						hasConsumable = true;
+						break;
+					};
+				};
+				for (let stonename of Object.keys(itemlists.stones)){
+					if (itemName.includes(stonename)){
+						itemName = "stone of " + itemlists.stones[stonename];
+						if (beforeAutocorrectItemName != itemName) autocorrectUsed = true;
+						hasConsumable = true;
+						break;
+					};
+				};
+				for (let miscname of Object.keys(itemlists.miscconsumables)){
+					if (itemName.includes(miscname)){
+						itemName = itemlists.miscconsumables[miscname];
+						if (beforeAutocorrectItemName != itemName) autocorrectUsed = true;
+						hasConsumable = true;
+						break;
+					};
+				};
+
+				if (curItem.includes('+')) {
+					for (let oiuname of Object.keys(itemlists.onlyifupgraded)){
+					if (itemName.includes(oiuname)){
+						itemName = itemlists.onlyifupgraded[oiuname];
+						if (beforeAutocorrectItemName != itemName) autocorrectUsed = true;
+						break;
+					};
+				};
+			}
+
+		}
+
+			for (let ambiguousitem of Object.keys(itemlists.ambiguous)){
+				if (itemName == ambiguousitem){
+					ambiguousitems.push(itemName + ": " + itemlists.ambiguous[ambiguousitem])
+					break;
+				};
+			};
+
 			if (curItem.includes("+")) {
 				curItem = (itemName + " +" + upgradeLevel); //makes sure there's 1 space between the item name and level
 				if (curItem.includes("0")) curItem = itemName; //inputs with +0 in them are treated as just unupgraded items
-				if (firstWordUpgradables.includes(itemName)) errorstatus = "wrongUpgradeSyntax:"+ curItem;
-			}
+				if (itemlists.firstWordUpgradables.includes(itemName)) errorstatus = "wrongUpgradeSyntax:"+ curItem;
+			} else curItem = itemName;
 			if (itemName.length > 30 || itemName.split(' ').length > 4) errorstatus = "unseparated:"+ curItem;
 			if (itemName.split(' ').length == 1 && itemName.length > 14) errorstatus = "missingSpaces:"+ curItem;
+
 
 			if (curItem) itemlist.push(curItem);
 
 			if (upgradeLevel > 2){
 				//counting how many rings of high level we're looking for
 				let isRing = false;
-				for (let ringname of rings){
+				for (let ringname of itemlists.ringArray){
 					if (curItem.includes(ringname)) {
 						isRing = true;
 						if (maxupgradedrings) errorstatus = "tooManyHighRings";
@@ -185,7 +322,7 @@ module.exports = {
 					}
 				};
 				//counting how many wands of high level we're looking for
-				for (let wandname of wands){
+				for (let wandname of itemlists.wandArray){
 					if (curItem.includes(wandname)) {
 						if (maxupgradedwands) errorstatus = "tooManyHighWands";
 						if (hasQuestItem) errorstatus = "questItemAndWandmakerWand";
@@ -208,6 +345,8 @@ module.exports = {
 		console.log(`\x1b[32m■\x1b[0m finder: New request. Using file ${outputfile}.`);
 		if (longScan) instanceTracker.addLongscanUser(userId);
 
+		if (!showConsumables && !hasConsumable) spawnflags += 's';	//hide consumables unless specifically asked for
+
 		//spawning a child process
 		fs.writeFileSync('in.txt', itemlist.join('\n'));
 		var child = spawn('java', ['-XX:+UnlockExperimentalVMOptions', '-XX:+EnableJVMCI', '-XX:-UseJVMCICompiler', '-jar', jarName, "-mode", "find", '-floors', floors, '-items', 'in.txt', '-output', outputfile, '-start', startingseed, '-end', startingseed + seedstoscan, '-seeds', seedsToFind, spawnflags]);
@@ -217,7 +356,18 @@ module.exports = {
 		child['floors'] = floors;
 		child['items'] = itemlist;
 
-		let findBeginEmbeds = [{ description: `${instanceTracker.freeInstanceTracker()}. Scanning: ${seedstoscan/1000}k. Starting at: ${startingseed}. Version: ${versionName}`, color: embedColor}];
+		let findBeginEmbeds = [{
+			description: `${instanceTracker.freeInstanceTracker()}. Scanning: ${seedstoscan/1000}k. Starting at: ${startingseed}. Version: ${versionName}${autocorrectUsed ? ". Autocorrected":""}`,
+			color: embedColor
+		}];
+
+		if (ambiguousitems.length > 0) findBeginEmbeds.push(
+			{
+				color: 0xf5dd0a,
+				description: "Some of your items are ambiguous, please specify:\n"+ ambiguousitems.join('\n')
+			}
+		);
+
 		if (floors == 1 && itemlist.length > 2) findBeginEmbeds.push(
 			{
 				color: embedColor,
@@ -227,7 +377,7 @@ module.exports = {
 
 		//initial confirmation, lets the user and discord know the bot isn't dead
 		await interaction.reply({
-			content:`<:examine:1077978273583202445> Looking for ${(seedsToFind > 1) ? (seedsToFind + " seeds") : ("a seed")}${runesOn ? " __with Forbidden Runes on__" : ""}${barrenOn ? " __with Barren Lands on__" : ""} up to depth ${floors} with items: ${itemlist.join(", ")}\n`,
+			content:`<:examine:1077978273583202445> Looking for ${(seedsToFind > 1) ? (seedsToFind + " seeds") : ("a seed")}${runesOn ? " __with Forbidden Runes on__" : ""}${barrenOn ? " __with Barren Lands on__" : ""} up to depth ${floors} with item${itemlist.length > 1 ? "s" : ""}: ${itemlist.join(", ")}\n`,
 			embeds: findBeginEmbeds
 		});
 
@@ -257,13 +407,14 @@ module.exports = {
 			if (longScan) instanceTracker.removeLongscanUser(userId);
 
 			let printAsCodeblock = ""
-			if (!writeToFile){
-				try { const data = fs.readFileSync(outputfile, 'utf8'); printAsCodeblock = data; } catch (err) {console.error(err);}
-			}
+			try { const data = fs.readFileSync(outputfile, 'utf8'); printAsCodeblock = data.replaceAll("\n\n", "\n"); } //there's a rare case when multiple seeds are requested, but 1 is found and the bot produces a non-compact result. removing double newlines at least somewhat compacts it then
+			catch (err) {console.error(err);}
+			if (printAsCodeblock.length > 1200) printAsCodeblock = null;
+
 			console.log(`\x1b[32m■\x1b[0m finder: Request ${instanceName} completed. Exit code ${code}.`);
 
 			let resultEmbedList = [];
-			if (!writeToFile) resultEmbedList = [{
+			if (printAsCodeblock) resultEmbedList = [{
 				color: embedColor,
 				title: seedlist[0],
 				description: printAsCodeblock,
@@ -286,8 +437,8 @@ module.exports = {
 
 
 			if (foundseeds > 0) interaction.channel.send({
-				content: `<:firepog:1077978284664561684> Done! Found ${foundseeds} matching seed${foundseeds > 1 ? "s" : ""} ${(runesOn | barrenOn | darknessOn) ? "(**__SOME CHALLENGES ON__**) " : ""}by ${username}'s request: ${seedlist.join(", ")}.${(userOnMobile && !writeToFile) ? " Long press the seed to copy it to clipboard!" : ""}`,
-				files: writeToFile ? [outputfile] : [],
+				content: `<:firepog:1077978284664561684> Done! Found ${foundseeds} matching seed${foundseeds > 1 ? "s" : ""} ${(runesOn | barrenOn | darknessOn) ? "(**__SOME CHALLENGES ON__**) " : ""}by ${username}'s request: ${seedlist.join(", ")}.${(userOnMobile && printAsCodeblock) ? " Long press the seed to copy it to clipboard!" : ""}`,
+				files: !printAsCodeblock ? [outputfile] : [],
 				embeds: resultEmbedList
 			});
 
@@ -297,7 +448,7 @@ module.exports = {
 			}
 			//this if check looks unnecessary but it prevents the bot from false triggering on process kills from outside
 			else if (code == 0) initialreply.reply({
-				content: `<:soiled:1077978326695678032> No seeds match in scanned range requested by ${username}. Try the same request again to scan more seeds. Also check for misspellings/typos.`,
+				content: `<:soiled:1077978326695678032> No seeds match in scanned range requested by ${username}. __Try the same request again to scan more seeds__. Also check for misspellings/typos.`,
 				embeds: resultEmbedList
 			});
 		});

@@ -159,16 +159,15 @@ module.exports = {
 		//we iterate over every submitted item and runs checks on them
 		//after which they're added to an array so they can be later joined with different separators as needed
 		let itemlist = [];
-		let ambiguousitems = [];
+		let ambiguousitems = []; //holds items like "frost" that can result in 2 different items
+		let autocorrectLikelyInvalid = []; //holds all items that the autocorrect didn't match
+		let allItemsValid = true; //invalidated if autocorrect finds no match for an item
 		let autocorrectUsed = false;
 		let hasConsumable = false;
 		items.split(',').forEach(element => {
 			let curItem = element.trim();
 
 			//if (curItem.startsWith('+') && curItem.length > 2) errorstatus = "startsWithPlus:"+ curItem;
-
-
-
 			let splitbyupgrades = curItem.split("+"); //item name, upgrade level
 			if (splitbyupgrades.length > 2) errorstatus = "unseparated:" + curItem;
 
@@ -188,8 +187,9 @@ module.exports = {
 			if (itemName.match(/[0-4]/g)) errorstatus ="excessNumbers:" + curItem; //verifying there's no excessive numbers left in the item name
 
 			let beforeAutocorrectItemName = itemName;
+			let itemConfirmedValid = false;
+			let itemCategory = false;
 			if (!disableAutocorrect) {
-
 				let enchantment = "";
 				for (let enchantmentname of Object.keys(itemlists.enchantments)){
 					if (itemName.includes(enchantmentname)){
@@ -205,93 +205,43 @@ module.exports = {
 					};
 				};
 
-				for (let artifactname of Object.keys(itemlists.artifacts)){
-					if (itemName.includes(artifactname)){
-						itemName = itemlists.artifacts[artifactname];
-						if (beforeAutocorrectItemName != itemName) autocorrectUsed = true;
-						break;
+				for (let autocorrectType of Object.keys(itemlists.autocorrectTypes)) {
+					for (let autocorrectSample of Object.keys(itemlists.autocorrectTypes[autocorrectType])){
+						if (itemName.includes(autocorrectSample)){
+							itemName = itemlists.autocorrectTypes[autocorrectType][autocorrectSample];
+							itemConfirmedValid = true;
+							itemCategory = autocorrectType;
+							break;
+						};
+						if (itemConfirmedValid) break;
 					};
-				};
-
-				for (let armorname of Object.keys(itemlists.armor)){
-					if (itemName.includes(armorname)){
-						itemName = itemlists.armor[armorname] + glyph;
-						if (beforeAutocorrectItemName != itemName) autocorrectUsed = true;
-						break;
-					};
-				};
-
-				for (let weaponname of Object.keys(itemlists.weapons)){
-					if (itemName.includes(weaponname)){
-						itemName = enchantment + itemlists.weapons[weaponname];
-						if (beforeAutocorrectItemName != itemName) autocorrectUsed = true;
-						break;
-					};
-				};
-
-				for (let ringname of Object.keys(itemlists.rings)){
-					if (itemName.includes(ringname)){
-						itemName = itemlists.rings[ringname];
-						if (beforeAutocorrectItemName != itemName) autocorrectUsed = true;
-						break;
-					};
-				};
-
-				for (let wandname of Object.keys(itemlists.wands)){
-					if (itemName.includes(wandname)){
-						itemName = itemlists.wands[wandname];
-						if (beforeAutocorrectItemName != itemName) autocorrectUsed = true;
-						break;
-					};
-				};
-
-				for (let potionname of Object.keys(itemlists.potions)){
-					if (itemName.includes(potionname)){
-						itemName = itemlists.potions[potionname];
-						if (beforeAutocorrectItemName != itemName) autocorrectUsed = true;
-						hasConsumable = true;
-						break;
-					};
-				};
-				for (let scrollname of Object.keys(itemlists.scrolls)){
-					if (itemName.includes(scrollname)){
-						itemName = itemlists.scrolls[scrollname];
-						if (beforeAutocorrectItemName != itemName) autocorrectUsed = true;
-						hasConsumable = true;
-						break;
-					};
-				};
-				for (let stonename of Object.keys(itemlists.stones)){
-					if (itemName.includes(stonename)){
-						itemName = itemlists.stones[stonename];
-						if (beforeAutocorrectItemName != itemName) autocorrectUsed = true;
-						hasConsumable = true;
-						break;
-					};
-				};
-				for (let miscname of Object.keys(itemlists.miscconsumables)){
-					if (itemName.includes(miscname)){
-						itemName = itemlists.miscconsumables[miscname];
-						if (beforeAutocorrectItemName != itemName) autocorrectUsed = true;
-						hasConsumable = true;
-						break;
-					};
-				};
+				}
 
 				if (curItem.includes('+')) {
 					for (let oiuname of Object.keys(itemlists.onlyifupgraded)){
 					if (itemName.includes(oiuname)){
 						itemName = itemlists.onlyifupgraded[oiuname];
-						if (beforeAutocorrectItemName != itemName) autocorrectUsed = true;
+						itemConfirmedValid = true;
+
 						break;
 					};
 				};
 			}
 
+			if (beforeAutocorrectItemName != itemName) autocorrectUsed = true;
+			if (itemCategory == "weapons") itemName = enchantment + itemName;
+			if (itemCategory == "armor") itemName += glyph;
+
+			if (!itemConfirmedValid) autocorrectLikelyInvalid.push(itemName);
+
+			if ( ["scrolls", "potions", "stones", "miscconsumables"].includes(itemCategory)) hasConsumable = true;
+
+			if (curItem.includes('+') && itemConfirmedValid && !["weapons", "armor", "wands", "rings"].includes(itemCategory)) errorstatus = "unupgradeableWithUpgrades:"+curItem;
+
 		}
 
 			for (let ambiguousitem of Object.keys(itemlists.ambiguous)){
-				if (itemName == ambiguousitem){
+				if (itemName == ambiguousitem && !ambiguousitems.includes(itemName)){
 					ambiguousitems.push(itemName + ": " + itemlists.ambiguous[ambiguousitem])
 					break;
 				};
@@ -350,6 +300,7 @@ module.exports = {
 		fs.writeFileSync('in.txt', itemlist.join('\n'));
 		var child = spawn('java', ['-XX:+UnlockExperimentalVMOptions', '-XX:+EnableJVMCI', '-XX:-UseJVMCICompiler', '-jar', jarName, "-mode", "find", '-floors', floors, '-items', 'in.txt', '-output', outputfile, '-start', startingseed, '-end', startingseed + seedstoscan, '-seeds', seedsToFind, spawnflags]);
 
+		//the process is assigned all these custom values so they can be displayed in /instances
 		child['userId'] = userId;
 		child['instanceCode'] = instanceName;
 		child['floors'] = floors;
@@ -359,6 +310,13 @@ module.exports = {
 			description: `${instanceTracker.freeInstanceTracker()}. Scanning: ${seedstoscan/1000}k. Starting at: ${startingseed}. Version: ${versionName}${autocorrectUsed ? ". Autocorrected":""}`,
 			color: embedColor
 		}];
+
+		if (autocorrectLikelyInvalid.length > 0) findBeginEmbeds.push(
+			{
+				color: 0xf5dd0a,
+				description: (autocorrectLikelyInvalid.length > 1 ? "These items were" : "This item was") + " not recognized: "+ autocorrectLikelyInvalid.join(', ') + "\nIf you made a mistake, use /stop and retry."
+			}
+		);
 
 		if (ambiguousitems.length > 0) findBeginEmbeds.push(
 			{
@@ -434,7 +392,6 @@ module.exports = {
 			// 	}
 			// );
 
-
 			if (foundseeds > 0) interaction.channel.send({
 				content: `<:firepog:1077978284664561684> Done! Found ${foundseeds} matching seed${foundseeds > 1 ? "s" : ""} ${(runesOn | barrenOn | darknessOn) ? "(**__SOME CHALLENGES ON__**) " : ""}by ${username}'s request: ${seedlist.join(", ")}.${(userOnMobile && printAsCodeblock) ? " Long press the seed to copy it to clipboard!" : ""}`,
 				files: !printAsCodeblock ? [outputfile] : [],
@@ -447,7 +404,7 @@ module.exports = {
 			}
 			//this if check looks unnecessary but it prevents the bot from false triggering on process kills from outside
 			else if (code == 0) initialreply.reply({
-				content: `<:soiled:1077978326695678032> No seeds match in scanned range requested by ${username}. __Try the same request again to scan more seeds__. Also check for misspellings/typos.`,
+				content: `<:soiled:1077978326695678032> No seeds match in scanned range requested by ${username}. __Try the same request again to scan more seeds__.${(autocorrectLikelyInvalid || disableAutocorrect) ? " Also check for misspellings/typos." :""}`,
 				embeds: resultEmbedList
 			});
 		});

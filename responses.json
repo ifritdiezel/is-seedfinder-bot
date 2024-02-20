@@ -17,5 +17,6 @@
 	"floorOneEnchantment":"Stones of enchantment can only naturally generate in hidden rooms behind bookshelves and there cannot be hidden rooms on floor 1.",
 	"floorOneAlchemy":"Alchemy pot rooms cannot generate on floor 1.",
 	"floorOneShatteredHoneypot":"Hidden rooms such as the shattered honeypot room cannot generate on floor 1.",
-	"excessNumbers":"There can't be numbers in the item name, multiple digits in the upgrade count or item counts."
+	"excessNumbers":"There can't be numbers in the item name, multiple digits in the upgrade count or item counts.",
+	"unupgradeableWithUpgrades":"This kind of item cannot spawn upgraded."
 }

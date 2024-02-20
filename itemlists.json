@@ -109,6 +109,21 @@
 			"shield":"round shield",
 			"sai":"sai"
 		},
+		"missiles":{
+			"fish":"fishing spear",
+			"club":"throwing club",
+			"shuri":"shuriken",
+			"suri":"shuriken",
+			"throw":"throwing spear",
+			"kunai":"kunai",
+			"bolas":"bolas",
+		 	"jave":"javelin",
+			"toma":"tomahawk",
+			"boomerang":"boomerang",
+			"trid":"trident",
+			"throwing h":"throwing hammer",
+			"cube":"force cube"
+		},
 		"armor":{
 			"leat":"leather armor",
 			"mail":"mail armor",

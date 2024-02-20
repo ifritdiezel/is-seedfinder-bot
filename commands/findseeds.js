@@ -189,27 +189,26 @@ module.exports = {
 
 			let beforeAutocorrectItemName = itemName;
 			if (!disableAutocorrect) {
+
 				let enchantment = "";
-
-				for (let artifactname of Object.keys(itemlists.artifacts)){
-					if (itemName.includes(artifactname)){
-						itemName = itemlists.artifacts[artifactname];
-						if (beforeAutocorrectItemName != itemName) autocorrectUsed = true;
-						break;
-					};
-				};
-
 				for (let enchantmentname of Object.keys(itemlists.enchantments)){
 					if (itemName.includes(enchantmentname)){
 						enchantment = itemlists.enchantments[enchantmentname] + ' ';
 						break;
 					};
 				};
-
 				let glyph = "";
 				for (let glyphname of Object.keys(itemlists.glyphs)){
 					if (itemName.includes(glyphname)){
 						glyph = ' of ' + itemlists.glyphs[glyphname];
+						break;
+					};
+				};
+
+				for (let artifactname of Object.keys(itemlists.artifacts)){
+					if (itemName.includes(artifactname)){
+						itemName = itemlists.artifacts[artifactname];
+						if (beforeAutocorrectItemName != itemName) autocorrectUsed = true;
 						break;
 					};
 				};
@@ -232,7 +231,7 @@ module.exports = {
 
 				for (let ringname of Object.keys(itemlists.rings)){
 					if (itemName.includes(ringname)){
-						itemName = "ring of " + itemlists.rings[ringname];
+						itemName = itemlists.rings[ringname];
 						if (beforeAutocorrectItemName != itemName) autocorrectUsed = true;
 						break;
 					};
@@ -240,7 +239,7 @@ module.exports = {
 
 				for (let wandname of Object.keys(itemlists.wands)){
 					if (itemName.includes(wandname)){
-						itemName = "wand of " + itemlists.wands[wandname];
+						itemName = itemlists.wands[wandname];
 						if (beforeAutocorrectItemName != itemName) autocorrectUsed = true;
 						break;
 					};
@@ -248,7 +247,7 @@ module.exports = {
 
 				for (let potionname of Object.keys(itemlists.potions)){
 					if (itemName.includes(potionname)){
-						itemName = "potion of " + itemlists.potions[potionname];
+						itemName = itemlists.potions[potionname];
 						if (beforeAutocorrectItemName != itemName) autocorrectUsed = true;
 						hasConsumable = true;
 						break;
@@ -256,7 +255,7 @@ module.exports = {
 				};
 				for (let scrollname of Object.keys(itemlists.scrolls)){
 					if (itemName.includes(scrollname)){
-						itemName = "scroll of " + itemlists.scrolls[scrollname];
+						itemName = itemlists.scrolls[scrollname];
 						if (beforeAutocorrectItemName != itemName) autocorrectUsed = true;
 						hasConsumable = true;
 						break;
@@ -264,7 +263,7 @@ module.exports = {
 				};
 				for (let stonename of Object.keys(itemlists.stones)){
 					if (itemName.includes(stonename)){
-						itemName = "stone of " + itemlists.stones[stonename];
+						itemName = itemlists.stones[stonename];
 						if (beforeAutocorrectItemName != itemName) autocorrectUsed = true;
 						hasConsumable = true;
 						break;

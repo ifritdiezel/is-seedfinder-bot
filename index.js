@@ -25,7 +25,7 @@ if (!fs.existsSync(config.jarName)) {
 }
 
 if (config.versionName.startsWith("2.0") || config.versionName.startsWith("1.4")) {
-	console.log("\x1b[31m■\x1b[0m This bot version is likely incompatible with this seedfinder version due to argument changes.");
+	console.log("\x1b[31m■\x1b[0m This bot version is incompatible with this seedfinder version due to argument changes.");
 }
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildPresences] });

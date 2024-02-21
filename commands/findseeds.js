@@ -134,13 +134,14 @@ module.exports = {
 		if (runesOn) spawnflags += 'r';						//forbidden runes flag
 		if (barrenOn) spawnflags += 'b';					//barren lands flag
 		if (darknessOn) spawnflags += 'd';				//into darkness flag
-																							//show consumables flag is enabled conditionally below
+		// ->																			//show consumables flag is enabled conditionally below, near the child process spawning
 		if (!writeToFile) spawnflags += 'c';			//if attaching a file is not necessary, enable compact mode
 
 
-		items = items.replaceAll('’', "'"); //fixing some commonly misused symbols
+		//fixing some commonly misused symbols
+		items = items.replaceAll('’', "'");
 		items = items.replaceAll('.', ",");
-		items = items.replaceAll('\n', ",");
+		items = items.replaceAll('\n', ","); //i have no idea how someone managed to sneak a newline in but it happened once
 
 		//items with non-english symbols cannot possibly be found, so such inputs can be discarded
 		//also only allows numbers 0-4: the only possible upgrade levels
@@ -151,19 +152,19 @@ module.exports = {
 		if (items.includes("energy crystal") && floors == 1) errorstatus = "floorOneAlchemy";
 		if (handleError(errorstatus, interaction)) return;
 
+
+
 		//flags that get set during the iteration to discard broken inputs
 		var maxupgradedrings = 0;
 		var maxupgradedwands = 0;
 		var hasQuestItem = items.includes("corpse") || items.includes("dust") || items.includes("embers") || items.includes("rotberry") || items.includes("candle");
-
-		//we iterate over every submitted item and runs checks on them
-		//after which they're added to an array so they can be later joined with different separators as needed
-		let itemlist = [];
+		let itemlist = []; //this will be the finalized array of items after all the corrections and checks
 		let ambiguousitems = []; //holds items like "frost" that can result in 2 different items
 		let autocorrectLikelyInvalid = []; //holds all items that the autocorrect didn't match
 		let allItemsValid = true; //invalidated if autocorrect finds no match for an item
 		let autocorrectUsed = false;
 		let hasConsumable = false;
+
 		items.split(',').forEach(element => {
 			let curItem = element.trim();
 
@@ -174,6 +175,7 @@ module.exports = {
 			let upgradeLevel = splitbyupgrades.at(-1);
 			let itemName = splitbyupgrades[0].trim();
 
+			//magically shuffle the upgrade level from the start of the item to the end
 			if (curItem.startsWith('+')){
 				if (curItem[1] && curItem[1].match(/[0-4]/)) {
 					upgradeLevel = curItem[1];
@@ -186,11 +188,13 @@ module.exports = {
 
 			if (itemName.match(/[0-4]/g)) errorstatus ="excessNumbers:" + curItem; //verifying there's no excessive numbers left in the item name
 
+
 			let beforeAutocorrectItemName = itemName;
 			let itemConfirmedValid = false;
-			let itemCategory = false;
+			let itemCategory = false; //only used in autocorrect checks
 			if (!disableAutocorrect) {
-				let enchantment = "";
+
+				let enchantment = ""; //enchants and glyphs are always detected but only appended if the item type is right
 				for (let enchantmentname of Object.keys(itemlists.enchantments)){
 					if (itemName.includes(enchantmentname)){
 						enchantment = itemlists.enchantments[enchantmentname] + ' ';
@@ -205,6 +209,7 @@ module.exports = {
 					};
 				};
 
+				//just goes down through all the pieces one by one
 				for (let autocorrectType of Object.keys(itemlists.autocorrectTypes)) {
 					for (let autocorrectSample of Object.keys(itemlists.autocorrectTypes[autocorrectType])){
 						if (itemName.includes(autocorrectSample)){
@@ -217,44 +222,45 @@ module.exports = {
 					};
 				}
 
+				//for items like "frost" that can only match to upgradeable items
 				if (curItem.includes('+')) {
 					for (let oiuname of Object.keys(itemlists.onlyifupgraded)){
-					if (itemName.includes(oiuname)){
-						itemName = itemlists.onlyifupgraded[oiuname];
-						itemConfirmedValid = true;
-
-						break;
+						if (itemName.includes(oiuname)){
+							itemName = itemlists.onlyifupgraded[oiuname];
+							itemConfirmedValid = true;
+							itemCategory = "onlyifupgraded";
+							break;
+						};
 					};
-				};
+				}
+
+				if (beforeAutocorrectItemName != itemName) autocorrectUsed = true;
+				if (itemCategory == "weapons") itemName = enchantment + itemName;
+				if (itemCategory == "armor") itemName += glyph;
+
+				if (!itemConfirmedValid) autocorrectLikelyInvalid.push(itemName);
+
+				if ( ["scrolls", "potions", "stones", "miscconsumables"].includes(itemCategory)) hasConsumable = true;
+
+				if (curItem.includes('+') && itemConfirmedValid && !["weapons", "armor", "wands", "rings", "onlyifupgraded"].includes(itemCategory)) errorstatus = "unupgradeableWithUpgrades:"+curItem;
+
 			}
 
-			if (beforeAutocorrectItemName != itemName) autocorrectUsed = true;
-			if (itemCategory == "weapons") itemName = enchantment + itemName;
-			if (itemCategory == "armor") itemName += glyph;
-
-			if (!itemConfirmedValid) autocorrectLikelyInvalid.push(itemName);
-
-			if ( ["scrolls", "potions", "stones", "miscconsumables"].includes(itemCategory)) hasConsumable = true;
-
-			if (curItem.includes('+') && itemConfirmedValid && !["weapons", "armor", "wands", "rings"].includes(itemCategory)) errorstatus = "unupgradeableWithUpgrades:"+curItem;
-
-		}
 
 			for (let ambiguousitem of Object.keys(itemlists.ambiguous)){
 				if (itemName == ambiguousitem && !ambiguousitems.includes(itemName)){
-					ambiguousitems.push(itemName + ": " + itemlists.ambiguous[ambiguousitem])
+					ambiguousitems.push(itemName)
 					break;
 				};
 			};
 
 			if (curItem.includes("+")) {
 				curItem = (itemName + " +" + upgradeLevel); //makes sure there's 1 space between the item name and level
-				if (curItem.includes("0")) curItem = itemName; //inputs with +0 in them are treated as just unupgraded items
+				if (curItem.includes("0")) curItem = itemName; //inputs with +0 in them are treated as just unupgraded items. sorry if you want a +0 specifically
 				if (itemlists.firstWordUpgradables.includes(itemName)) errorstatus = "wrongUpgradeSyntax:"+ curItem;
 			} else curItem = itemName;
 			if (itemName.length > 30 || itemName.split(' ').length > 4) errorstatus = "unseparated:"+ curItem;
-			if (itemName.split(' ').length == 1 && itemName.length > 14) errorstatus = "missingSpaces:"+ curItem;
-
+			if (itemName.split(' ').length == 1 && itemName.length > 14) errorstatus = "missingSpaces:"+ curItem; //the longest allowed word is "disintegration"
 
 			if (curItem) itemlist.push(curItem);
 
@@ -281,10 +287,13 @@ module.exports = {
 					}
 				};
 
-				if ((upgradeLevel > 3) && !(isRing && (upgradeLevel == 4))) errorstatus = "overUpgraded:"+ curItem; //could be merged with the line below but then it couldn't handle numbers over 4
+				if ((upgradeLevel > 3) && !(isRing && (upgradeLevel == 4))) errorstatus = "overUpgraded:"+ curItem;
 
 			}
 		});
+
+
+
 		if (floors < 7 && hasQuestItem) errorstatus = "questItemTooEarly";
 		if (handleError(errorstatus, interaction)) return;
 
@@ -293,10 +302,11 @@ module.exports = {
 		let outputfile = `scanresults/out${instanceName}.txt`;
 		console.log(`\x1b[32m■\x1b[0m finder: New request. Using file ${outputfile}.`);
 		if (longScan) instanceTracker.addLongscanUser(userId);
+		else if (autocorrectLikelyInvalid.length == 0 && !disableAutocorrect) seedstoscan *= 2;
 
 		if (!showConsumables && !hasConsumable) spawnflags += 's';	//hide consumables unless specifically asked for
 
-		//spawning a child process
+
 		fs.writeFileSync('in.txt', itemlist.join('\n'));
 		var child = spawn('java', ['-XX:+UnlockExperimentalVMOptions', '-XX:+EnableJVMCI', '-XX:-UseJVMCICompiler', '-jar', jarName, "-mode", "find", '-floors', floors, '-items', 'in.txt', '-output', outputfile, '-start', startingseed, '-end', startingseed + seedstoscan, '-seeds', seedsToFind, spawnflags]);
 
@@ -306,11 +316,13 @@ module.exports = {
 		child['floors'] = floors;
 		child['items'] = itemlist;
 
+
 		let findBeginEmbeds = [{
 			description: `${instanceTracker.freeInstanceTracker()}. Scanning: ${seedstoscan/1000}k. Starting at: ${startingseed}. Version: ${versionName}${autocorrectUsed ? ". Autocorrected":""}`,
 			color: embedColor
 		}];
 
+		autocorrectLikelyInvalid = autocorrectLikelyInvalid.filter(n => !ambiguousitems.includes(n)); //exclude all the items that are in the ambiguous list
 		if (autocorrectLikelyInvalid.length > 0) findBeginEmbeds.push(
 			{
 				color: 0xf5dd0a,
@@ -318,10 +330,13 @@ module.exports = {
 			}
 		);
 
+		ambiguousItemsResult = [];
+		for (let ambiguousitem of ambiguousitems) ambiguousItemsResult.push(ambiguousitem + ": " + itemlists.ambiguous[ambiguousitem])
+
 		if (ambiguousitems.length > 0) findBeginEmbeds.push(
 			{
 				color: 0xf5dd0a,
-				description: "Some of your items are ambiguous, please specify:\n"+ ambiguousitems.join('\n')
+				description: "Some of your items are ambiguous, please specify:\n"+ ambiguousItemsResult.join('\n')
 			}
 		);
 
@@ -404,7 +419,7 @@ module.exports = {
 			}
 			//this if check looks unnecessary but it prevents the bot from false triggering on process kills from outside
 			else if (code == 0) initialreply.reply({
-				content: `<:soiled:1077978326695678032> No seeds match in scanned range requested by ${username}. __Try the same request again to scan more seeds__.${(autocorrectLikelyInvalid || disableAutocorrect) ? " Also check for misspellings/typos." :""}`,
+				content: `<:soiled:1077978326695678032> No seeds match in scanned range requested by ${username}. __Try the same request again to scan more seeds__.${(autocorrectLikelyInvalid.length > 0 || disableAutocorrect) ? " Also check for misspellings/typos." :""}`,
 				embeds: resultEmbedList
 			});
 		});

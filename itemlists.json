@@ -246,7 +246,8 @@
 			"map":"scroll of magic mapping",
 			"retrib":"scroll of retribution",
 			"terror":"scroll of terror",
-			"transm":"scroll of transmutation"
+			"transm":"scroll of transmutation",
+			"scroll":"scroll"
 		},
 		"stones":{
 			"enchant":"stone of enchantment",
@@ -263,7 +264,8 @@
 			"agres":"stone of aggression",
 			"stone of blast":"stone of blast",
 			"fear":"stone of fear",
-			"augm":"stone of augmentation"
+			"augm":"stone of augmentation",
+			"stone":"stone"
 		},
 		"miscconsumables":{
 			"ration of":"ration of food",

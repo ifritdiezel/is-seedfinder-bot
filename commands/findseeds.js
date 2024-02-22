@@ -7,7 +7,8 @@ if (!versionName) versionName = jarName;
 const responses = require('../responses.json');
 const itemlists = require('../itemlists.json');
 const instanceTracker = require('../utils/instancetracker.js');
-const embedColor = 0x2ee62e; //has to be hardcoded here because json won't take this value
+const { levenshtein } = require('../utils/levenshtein.js');
+const embedColor = 0x2ee62e; //has to be hardcoded here because json won't take this value. sucks!
 
 function executionTimeTracker(stT){
 	let seconds = Math.round((+new Date - stT) / 1000);
@@ -211,17 +212,38 @@ module.exports = {
 					};
 				};
 
+				let bestLevenshteinMatch = "";
+				let lowestLevenshtein = itemName.length;
+
 				//just goes down through all the pieces one by one
 				for (let autocorrectType of Object.keys(itemlists.autocorrectTypes)) {
 					for (let autocorrectSample of Object.keys(itemlists.autocorrectTypes[autocorrectType])){
+
+
+						let curLevenshtein = levenshtein(itemlists.autocorrectTypes[autocorrectType][autocorrectSample], itemName);
+						if (curLevenshtein < lowestLevenshtein) {
+							bestLevenshteinMatch = itemlists.autocorrectTypes[autocorrectType][autocorrectSample];
+							lowestLevenshtein = curLevenshtein;
+						}
+
 						if (itemName.includes(autocorrectSample)){
 							itemName = itemlists.autocorrectTypes[autocorrectType][autocorrectSample];
 							itemConfirmedValid = true;
 							itemCategory = autocorrectType;
 							break;
 						};
+
+						if (curLevenshtein < itemName.length && curLevenshtein < 5) {
+							console.log("levenshtein "+ curLevenshtein +": " + itemName+ " -> " + itemlists.autocorrectTypes[autocorrectType][autocorrectSample])
+						}
+
 						if (itemConfirmedValid) break;
 					};
+				}
+
+				if (!itemConfirmedValid && lowestLevenshtein < itemName.length && lowestLevenshtein < 3){
+					itemName = bestLevenshteinMatch;
+					itemConfirmedValid = true;
 				}
 
 				//for items like "frost" that can only match to upgradeable items
@@ -236,7 +258,7 @@ module.exports = {
 					};
 				}
 
-				if (beforeAutocorrectItemName != itemName) autocorrectUsed = true;
+				if (!itemName.includes(beforeAutocorrectItemName)) autocorrectUsed = true;
 				if (itemCategory == "weapons") itemName = enchantment + itemName;
 				if (itemCategory == "armor") itemName += glyph;
 

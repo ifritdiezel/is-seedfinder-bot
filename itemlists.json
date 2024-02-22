@@ -1,6 +1,6 @@
 {
 	"ringArray":["ring", "arcana","shooting","accuracy","elements","energy","evasion","force","furor","haste","might","tenacity","wealth"],
-	"wandArray":["wand", "missile","lightning","disint","fireb","corros","wave","living eart","frost","prism","ward","transfus","corruption","regrow"],
+	"wandArray":["wand", "missile","lightning","disint","fireb","f of corros","wave","living eart","d of frost","prism","ward","transfus","corruption","regrow"],
 	"firstWordUpgradables":["ring", "wand"],
 	"ambiguous":{
 			"horn":"horn of plenty OR armor of thorns",
@@ -30,7 +30,16 @@
 		"grim":"grim",
 		"vamp":"vampiric",
 		"cor":"corrupting",
-		"bloom":"blooming"
+		"bloom":"blooming",
+
+		"sacrificial":"sacrificial",
+		"wayward":"wayward",
+		"displacing":"displacing",
+		"annoying":"annoying",
+		"polarized":"polarized",
+		"friendly":"friendly",
+		"dazzling":"dazzling",
+		"explosive":"explosive"
 	},
 	"glyphs":{
 		"invis":"obfuscation",
@@ -52,7 +61,16 @@
 		"af":"affection",
 		"ant":"anti-magic",
 		"mag":"anti-magic",
-		"orn": "thorns"
+		"orn": "thorns",
+
+		"entropy":"anti-entropy",
+		"corrosion":"corrosion",
+		"displacement":"displacement",
+		"metabolism":"metabolism",
+		"multiplicity":"multiplicity",
+		"stench":"stench",
+		"overgrowth":"overgrowth",
+		"bulk":"bulk"
 	},
 	"onlyifupgraded":{
 		"frost":"wand of frost",
@@ -152,7 +170,9 @@
 			"charming":"wand of transfusion",
 			"corruption":"wand of corruption",
 			"coruption":"wand of corruption",
-			"regrow":"wand of regrowth"
+			"regrow":"wand of regrowth",
+
+			"blast":"wand of blast wave"
 		},
 		"rings":{
 			"arc":"ring of arcana",

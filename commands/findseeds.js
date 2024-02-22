@@ -274,6 +274,7 @@ module.exports = {
 						if (maxupgradedrings) errorstatus = "tooManyHighRings";
 						if (floors < 17) errorstatus = "maxRingTooEarly";
 						maxupgradedrings++;
+						baseRingsWands.push(itemName);
 						break;
 					}
 				};
@@ -284,6 +285,7 @@ module.exports = {
 						if (hasQuestItem) errorstatus = "questItemAndWandmakerWand";
 						if (floors < 7) errorstatus = "maxWandTooEarly";
 						maxupgradedwands++;
+						baseRingsWands.push(itemName);
 						break;
 					}
 				};
@@ -322,6 +324,18 @@ module.exports = {
 			description: `${instanceTracker.freeInstanceTracker()}. Scanning: ${seedstoscan/1000}k. Starting at: ${startingseed}. Version: ${versionName}${autocorrectUsed ? ". Autocorrected":""}`,
 			color: embedColor
 		}];
+
+		//counting all instances of the same rings and wands to warn about the deck system limitations
+		let counts = {};
+		let showDeckLimitWarning = false;
+		baseRingsWands.forEach(function (x) { counts[x] = (counts[x] || 0) + 1; });
+		for (let [key, value] of Object.entries(counts)) {if (value > 3) showDeckLimitWarning = true;}
+		if (showDeckLimitWarning) findBeginEmbeds.push(
+			{
+				color: 0xf5dd0a,
+				description: "Due to Shattered's deck system design it is nearly impossible to find more than 3 of the same ring or wand" + (floors < 15 ? ", especially for lower floors") + "."
+			}
+		);
 
 		autocorrectLikelyInvalid = autocorrectLikelyInvalid.filter(n => !ambiguousitems.includes(n)); //exclude all the items that are in the ambiguous list
 		if (autocorrectLikelyInvalid.length > 0) findBeginEmbeds.push(

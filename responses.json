@@ -1,5 +1,6 @@
 {
 	"busy": "Busy processing previous requests. Please wait for them to finish.",
+	"badSymbols": "Item names have to be accurate to their names in English in Shattered PD and upgrade levels can only be 0-4.",
 	"longScanOngoing":"You already have an ongoing long scan. Use /stop to cancel it to start another.",
 	"containsCursed": "Sorry, specifically cursed/uncursed items cannot currently be found by specifying \"cursed\" as the word isn't part of the item name in-game.",
 	"unseparated": "The list of items needs to be separated with commas and only 1 upgrade parameter is allowed.",

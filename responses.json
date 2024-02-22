@@ -19,5 +19,6 @@
 	"floorOneAlchemy":"Alchemy pot rooms cannot generate on floor 1.",
 	"floorOneShatteredHoneypot":"Hidden rooms such as the shattered honeypot room cannot generate on floor 1.",
 	"excessNumbers":"There can't be numbers in the item name, multiple digits in the upgrade count or item counts.",
-	"unupgradeableWithUpgrades":"This kind of item cannot spawn upgraded."
+	"unupgradeableWithUpgrades":"This kind of item cannot spawn upgraded.",
+	"twoOfTheSameartifact":"It is impossible to find 2 of the same artifact."
 }

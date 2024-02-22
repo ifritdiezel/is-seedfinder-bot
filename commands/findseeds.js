@@ -160,6 +160,7 @@ module.exports = {
 		var hasQuestItem = items.includes("corpse") || items.includes("dust") || items.includes("embers") || items.includes("rotberry") || items.includes("candle");
 		let itemlist = []; //this will be the finalized array of items after all the corrections and checks
 		let baseRingsWands = []; //array of rings and wands without their upgrades. used for deck system checks
+		let artifacts = []; //used to check if there are 2 of the same artifact. why not
 		let ambiguousitems = []; //holds items like "frost" that can result in 2 different items
 		let autocorrectLikelyInvalid = []; //holds all items that the autocorrect didn't match
 		let allItemsValid = true; //invalidated if autocorrect finds no match for an item
@@ -243,6 +244,10 @@ module.exports = {
 
 				if ( ["scrolls", "potions", "stones", "miscconsumables"].includes(itemCategory)) hasConsumable = true;
 
+				if (itemCategory == "artifacts") artifacts.push(itemName);
+
+				if (itemCategory == "wands" || itemCategory == "rings") baseRingsWands.push(itemName);
+
 				if (curItem.includes('+') && itemConfirmedValid && !["weapons", "armor", "wands", "rings", "onlyifupgraded"].includes(itemCategory)) errorstatus = "unupgradeableWithUpgrades:"+curItem;
 
 			}
@@ -274,7 +279,6 @@ module.exports = {
 						if (maxupgradedrings) errorstatus = "tooManyHighRings";
 						if (floors < 17) errorstatus = "maxRingTooEarly";
 						maxupgradedrings++;
-						baseRingsWands.push(itemName);
 						break;
 					}
 				};
@@ -285,7 +289,6 @@ module.exports = {
 						if (hasQuestItem) errorstatus = "questItemAndWandmakerWand";
 						if (floors < 7) errorstatus = "maxWandTooEarly";
 						maxupgradedwands++;
-						baseRingsWands.push(itemName);
 						break;
 					}
 				};
@@ -296,6 +299,7 @@ module.exports = {
 		});
 
 
+		if (new Set(artifacts).size != artifacts.length) errorstatus = "twoOfTheSameartifact";
 
 		if (floors < 7 && hasQuestItem) errorstatus = "questItemTooEarly";
 		if (handleError(errorstatus, interaction)) return;
@@ -333,7 +337,7 @@ module.exports = {
 		if (showDeckLimitWarning) findBeginEmbeds.push(
 			{
 				color: 0xf5dd0a,
-				description: "Due to Shattered's deck system design it is nearly impossible to find more than 3 of the same ring or wand" + (floors < 15 ? ", especially for lower floors") + "."
+				description: "Due to Shattered's deck system design it is nearly impossible to find more than 3 of the same ring or wand" + (floors < 15 ? ", especially for lower floors":"") + "."
 			}
 		);
 

@@ -159,6 +159,7 @@ module.exports = {
 		var maxupgradedwands = 0;
 		var hasQuestItem = items.includes("corpse") || items.includes("dust") || items.includes("embers") || items.includes("rotberry") || items.includes("candle");
 		let itemlist = []; //this will be the finalized array of items after all the corrections and checks
+		let baseRingsWands = []; //array of rings and wands without their upgrades. used for deck system checks
 		let ambiguousitems = []; //holds items like "frost" that can result in 2 different items
 		let autocorrectLikelyInvalid = []; //holds all items that the autocorrect didn't match
 		let allItemsValid = true; //invalidated if autocorrect finds no match for an item

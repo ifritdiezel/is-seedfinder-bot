@@ -2,6 +2,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { Client, Collection, Events, GatewayIntentBits } = require('discord.js');
 const config = require('./config.json');
+const { handleMessage } = require('./handleTextMessage.js')
 
 if (!fs.existsSync('scanresults')) {
 	console.log("\x1b[31m■\x1b[0m You should run 'node deploy-commands.js' to enable the commands first.");
@@ -28,7 +29,7 @@ if (config.versionName.startsWith("2.0") || config.versionName.startsWith("1.4")
 	console.log("\x1b[31m■\x1b[0m This bot version is incompatible with this seedfinder version due to argument changes.");
 }
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildPresences] });
+const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildPresences, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] });
 
 client.commands = new Collection();
 const commandsPath = path.join(__dirname, 'commands');
@@ -46,6 +47,12 @@ client.once(Events.ClientReady, () => {
   	//workingchannel.send('What is it?');
 });
 
+
+client.on(Events.MessageCreate, message => {
+	if (message.author.bot) return;
+	handleMessage(message);
+});
+
 client.on(Events.InteractionCreate, async interaction => {
 	if (!interaction.isChatInputCommand()) return;
 
@@ -60,5 +67,6 @@ client.on(Events.InteractionCreate, async interaction => {
 		await interaction.reply({ content: 'There was an error while executing this command!', ephemeral: true });
 	}
 });
+
 
 client.login(config.token);

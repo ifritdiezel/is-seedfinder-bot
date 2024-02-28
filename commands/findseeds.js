@@ -175,7 +175,7 @@ module.exports = {
 			let splitbyupgrades = curItem.split("+"); //item name, upgrade level
 			if (splitbyupgrades.length > 2) errorstatus = "unseparated:" + curItem;
 
-			let upgradeLevel = splitbyupgrades.at(-1);
+			let upgradeLevel = splitbyupgrades.at(-1).trim();
 			let itemName = splitbyupgrades[0].trim();
 
 			//magically shuffle the upgrade level from the start of the item to the end
@@ -188,6 +188,7 @@ module.exports = {
 					upgradeLevel = "";
 				}
 			}
+			if (upgradeLevel.length > 2) errorstatus = "upgradesTooLong:" + curItem;
 
 			if (itemName.match(/[0-4]/g)) errorstatus ="excessNumbers:" + curItem; //verifying there's no excessive numbers left in the item name
 
@@ -262,7 +263,7 @@ module.exports = {
 				if (itemCategory == "weapons") itemName = enchantment + itemName;
 				if (itemCategory == "armor") itemName += glyph;
 
-				if (!itemConfirmedValid) autocorrectLikelyInvalid.push(itemName);
+				if (!itemConfirmedValid && itemName) autocorrectLikelyInvalid.push(itemName);
 
 				if ( ["scrolls", "potions", "stones", "miscconsumables"].includes(itemCategory)) hasConsumable = true;
 
@@ -389,8 +390,14 @@ module.exports = {
 		);
 
 		//initial confirmation, lets the user and discord know the bot isn't dead
+		initialReplyContent = `<:examine:1077978273583202445> Looking for ` + ((seedsToFind > 1) ? seedsToFind + " seeds" : "a seed") +
+		(runesOn ? " __with Forbidden Runes on__" : "") + (barrenOn ? " __with Barren Lands on__" : "") +
+		` up to depth ${floors}`;
+		if (itemlist.length > 0) initialReplyContent += ` with item${itemlist.length > 1 ? "s" : ""}: ${itemlist.join(", ")}\n`
+		else initialReplyContent += " with any items at all. Easy!"
+
 		await interaction.reply({
-			content:`<:examine:1077978273583202445> Looking for ${(seedsToFind > 1) ? (seedsToFind + " seeds") : ("a seed")}${runesOn ? " __with Forbidden Runes on__" : ""}${barrenOn ? " __with Barren Lands on__" : ""} up to depth ${floors} with item${itemlist.length > 1 ? "s" : ""}: ${itemlist.join(", ")}\n`,
+			content: initialReplyContent,
 			embeds: findBeginEmbeds
 		});
 
@@ -431,7 +438,7 @@ module.exports = {
 				color: embedColor,
 				title: seedlist[0],
 				description: printAsCodeblock,
-				fields: [{name: 'Version', value: versionName, inline: true}, {name: 'Items', value: itemlist.join(", "), inline: true}],
+				fields: [{name: 'Version', value: versionName, inline: true}, {name: 'Items', value: itemlist.join(", ") || "Any", inline: true}],
 				footer: {text: `${instanceTracker.freeInstanceTracker()}. ${executionTimeTracker(startingTime)}`}
 			}]
 			else resultEmbedList = [{
@@ -449,7 +456,7 @@ module.exports = {
 			// );
 
 			if (foundseeds > 0) interaction.channel.send({
-				content: `<:firepog:1077978284664561684> Done! Found ${foundseeds} matching seed${foundseeds > 1 ? "s" : ""} ${(runesOn | barrenOn | darknessOn) ? "(**__SOME CHALLENGES ON__**) " : ""}by ${username}'s request: ${seedlist.join(", ")}.${(userOnMobile && printAsCodeblock) ? " Long press the seed to copy it to clipboard!" : ""}`,
+				content: `${seedlist.join("").includes("GAY")? "🏳️‍🌈" : "<:firepog:1077978284664561684>"} Done! Found ${foundseeds} matching seed${foundseeds > 1 ? "s" : ""} ${(runesOn | barrenOn | darknessOn) ? "(**__SOME CHALLENGES ON__**) " : ""}by ${username}'s request: ${seedlist.join(", ")}.${(userOnMobile && printAsCodeblock) ? " Long press the seed to copy it to clipboard!" : ""}`,
 				files: !printAsCodeblock ? [outputfile] : [],
 				embeds: resultEmbedList
 			});
@@ -459,10 +466,14 @@ module.exports = {
 				console.log(seedlist);
 			}
 			//this if check looks unnecessary but it prevents the bot from false triggering on process kills from outside
-			else if (code == 0) initialreply.reply({
-				content: `<:soiled:1077978326695678032> No seeds match in scanned range requested by ${username}. __Try the same request again to scan more seeds__.${(autocorrectLikelyInvalid.length > 0 || disableAutocorrect) ? " Also check for misspellings/typos." :""}`,
-				embeds: resultEmbedList
-			});
+			else if (code == 0) {
+				initialreply.reply({
+					content: `<:soiled:1077978326695678032> No seeds match in scanned range requested by ${username}. __Try the same request again to scan more seeds__.${(autocorrectLikelyInvalid.length > 0 || disableAutocorrect) ? " Also check for misspellings/typos." :""}`,
+					embeds: resultEmbedList
+				});
+				let floorsPerSecond = Math.round(seedstoscan / ((+new Date - startingTime) / 1000)-3)*floors  ;
+				if (!longScan) fs.appendFileSync('spslog.txt', '\n' + floorsPerSecond);
+			}
 		});
 
 	},

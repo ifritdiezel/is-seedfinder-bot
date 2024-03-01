@@ -1,6 +1,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
-const { Client, Collection, Events, GatewayIntentBits } = require('discord.js');
+const { Client, Collection, Events, GatewayIntentBits, PermissionsBitField } = require('discord.js');
 const config = require('./config.json');
 const { handleMessage } = require('./handleTextMessage.js')
 
@@ -49,7 +49,9 @@ client.once(Events.ClientReady, () => {
 
 
 client.on(Events.MessageCreate, message => {
+	if (!config.enableTextCommands) return;
 	if (message.author.bot) return;
+	if (!message.guild.members.me.permissionsIn(message.channel).has(new PermissionsBitField([PermissionsBitField.Flags.SendMessages]))) return;
 	handleMessage(message);
 });
 

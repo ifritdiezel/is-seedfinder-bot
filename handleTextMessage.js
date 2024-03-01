@@ -4,7 +4,7 @@ most of this is just copied and pasted from findseeds. i'm aware it's a bad thin
 
 const { spawn } = require('child_process');
 const fs = require('fs');
-const { instanceCap, defaultSeedsToFind, noPingRoleId, minSeedsToScan, jarName, ownerId, errorEmoji } = require('./config.json');
+const { instanceCap, defaultSeedsToFind, noPingRoleId, minSeedsToScan, jarName, ownerId, errorEmoji, enableLevenshteinMatching, enableTextCmdNaturalLanguage } = require('./config.json');
 let { versionName } = require('./config.json');
 if (!versionName) versionName = jarName;
 const responses = require('./responses.json');
@@ -41,14 +41,57 @@ function handleError(status, message){
 
 
 	function handleMessage (message){
-		if (!message.content.startsWith('!findseeds')) return;
-		if (message.content == "!findseeds" || message.content.includes("help")) {
+
+		let messageContent = message.content.toLowerCase().replaceAll("_","").replace(/\s+/g,' ');
+		messageContent = messageContent.replaceAll("find seed", "findseed");
+		let userId = message.author.id;
+		let args = messageContent.split(" ");
+
+		let confirmedCommandAttempt = false;
+
+		let floors = "";
+		let items = "";
+
+		//if you don't understand this that's fine probably
+		let nowListingItems = false;
+		if (enableTextCmdNaturalLanguage){
+			for (let i = 0; i < args.length; i++){
+				let commandWord = args[i];
+				let nPreviousCommandWord = args[i-1] || "";
+				nPreviousCommandWord = nPreviousCommandWord.replace(/\D/g,'');
+				let nNextCommandWord = args[i+1] || "";
+				nNextCommandWord = nNextCommandWord.replace(/\D/g,'');
+
+				if (commandWord.includes("floor") || commandWord.includes("depth")){
+					if (commandWord.includes(":")) {
+						floors = commandWord.split(":")[1] || "";
+						floors = floors.replace(/\D/g,'');
+					}
+					if (nPreviousCommandWord && !isNaN(nPreviousCommandWord)) floors = nPreviousCommandWord;
+					else if (nNextCommandWord && !isNaN(nNextCommandWord)) floors = nNextCommandWord;
+					nowListingItems = false;
+				}
+
+				else if (commandWord.includes("item") || commandWord.includes("request")){
+					nowListingItems = true;
+					if (commandWord.includes(":") && commandWord.split(":")[1]) items += commandWord.split(":")[1];
+				}
+				else if (nowListingItems) items += commandWord;
+			}
+		}
+
+
+		if (items && floors) confirmedCommandAttempt = true;
+		if (args[0].includes("findseed") ) confirmedCommandAttempt = true;
+
+		if (!confirmedCommandAttempt) return;
+
+		if (args.length == 1 || message.content.includes("help")) {
 			handleError("textCommandHelp", message);
 			return;
 	}
 		var errorstatus = "";
-		let messageContent = message.content.toLowerCase().replaceAll("_","");
-		let userId = message.author.id;
+
 
 		let disableAutocorrect = messageContent.includes("disable_autocorrect");
 		messageContent = messageContent.replaceAll("disable_autocorrect", "")
@@ -63,14 +106,14 @@ function handleError(status, message){
 		let showConsumables = messageContent.includes("showconsumables");
 		messageContent = messageContent.replaceAll("showconsumables", "");
 
-		let floors = messageContent.split(" ")[1];
+		floors = floors || args[1];
 		console.log("floors: "+ floors);
 		if (!floors || isNaN(floors) || floors < 1 || floors > 24) {
 			handleError("invalidFloorsNumber", message);
 			return;
 		}
 
-		let items = messageContent.slice("!findseeds".length + floors.length + 1);
+		items = items || messageContent.slice("!findseeds".length + floors.length + 1);
 
 		console.log("items: " + items);
 
@@ -158,6 +201,7 @@ function handleError(status, message){
 					upgradeLevel = "";
 				}
 			}
+			else upgradeLevel = "";
 
 			if (itemName.match(/[0-4]/g)) errorstatus ="excessNumbers:" + curItem; //verifying there's no excessive numbers left in the item name
 
@@ -191,7 +235,7 @@ function handleError(status, message){
 
 
 						let curLevenshtein = levenshtein(itemlists.autocorrectTypes[autocorrectType][autocorrectSample], itemName);
-						if (curLevenshtein < lowestLevenshtein) {
+						if (enableLevenshteinMatching && (curLevenshtein < lowestLevenshtein)) {
 							bestLevenshteinMatch = itemlists.autocorrectTypes[autocorrectType][autocorrectSample];
 							lowestLevenshtein = curLevenshtein;
 						}

@@ -1,7 +1,7 @@
 const { SlashCommandBuilder } = require('discord.js');
 const { spawn } = require('child_process');
 const fs = require('fs');
-const { instanceCap, defaultSeedsToFind, noPingRoleId, minSeedsToScan, jarName, ownerId, errorEmoji } = require('../config.json');
+const { instanceCap, defaultSeedsToFind, noPingRoleId, minSeedsToScan, jarName, ownerId, errorEmoji, enableLevenshteinMatching } = require('../config.json');
 let { versionName } = require('../config.json');
 if (!versionName) versionName = jarName;
 const responses = require('../responses.json');
@@ -98,7 +98,7 @@ module.exports = {
 
 		//parsing options to normal variables for ease of use
 		let floors =  interaction.options.getInteger('floors');
-		let items = interaction.options.getString('items').toLowerCase();
+		let items = interaction.options.getString('items').toLowerCase().replace(/\s+/g,' ');
 		let userId = interaction.member.id;
 
 		let longScan = interaction.options.getBoolean('longscan') ?? false;
@@ -188,6 +188,8 @@ module.exports = {
 					upgradeLevel = "";
 				}
 			}
+			else upgradeLevel = "";
+
 			if (upgradeLevel.length > 2) errorstatus = "upgradesTooLong:" + curItem;
 
 			if (itemName.match(/[0-4]/g)) errorstatus ="excessNumbers:" + curItem; //verifying there's no excessive numbers left in the item name
@@ -222,7 +224,7 @@ module.exports = {
 
 
 						let curLevenshtein = levenshtein(itemlists.autocorrectTypes[autocorrectType][autocorrectSample], itemName);
-						if (curLevenshtein < lowestLevenshtein) {
+						if (enableLevenshteinMatching && (curLevenshtein < lowestLevenshtein)) {
 							bestLevenshteinMatch = itemlists.autocorrectTypes[autocorrectType][autocorrectSample];
 							lowestLevenshtein = curLevenshtein;
 						}

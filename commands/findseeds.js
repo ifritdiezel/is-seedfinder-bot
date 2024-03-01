@@ -175,22 +175,23 @@ module.exports = {
 			let splitbyupgrades = curItem.split("+"); //item name, upgrade level
 			if (splitbyupgrades.length > 2) errorstatus = "unseparated:" + curItem;
 
-			let upgradeLevel = splitbyupgrades.at(-1).trim();
+			let upgradeLevel = splitbyupgrades.at(-1).trim().replaceAll(" ","");
+			if (splitbyupgrades.length == 1) upgradeLevel = "";
+
 			let itemName = splitbyupgrades[0].trim();
 
 			//magically shuffle the upgrade level from the start of the item to the end
 			if (curItem.startsWith('+')){
 				if (curItem[1] && curItem[1].match(/[0-4]/)) {
-					upgradeLevel = curItem[1];
+					upgradeLevel = curItem[1].replaceAll(" ","");
 					itemName = curItem.slice(2).trim();
 				} else {
 					itemName = curItem.slice(1).trim();
 					upgradeLevel = "";
 				}
 			}
-			else upgradeLevel = "";
 
-			if (upgradeLevel.length > 2) errorstatus = "upgradesTooLong:" + curItem;
+			if (upgradeLevel.length > 1) errorstatus = "upgradesTooLong:" + curItem;
 
 			if (itemName.match(/[0-4]/g)) errorstatus ="excessNumbers:" + curItem; //verifying there's no excessive numbers left in the item name
 

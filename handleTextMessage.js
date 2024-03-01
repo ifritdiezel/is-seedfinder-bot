@@ -189,6 +189,7 @@ function handleError(status, message){
 			if (splitbyupgrades.length > 2) errorstatus = "unseparated:" + curItem;
 
 			let upgradeLevel = splitbyupgrades.at(-1);
+			if (splitbyupgrades.length == 1) upgradeLevel = "";
 			let itemName = splitbyupgrades[0].trim();
 
 			//magically shuffle the upgrade level from the start of the item to the end
@@ -201,7 +202,6 @@ function handleError(status, message){
 					upgradeLevel = "";
 				}
 			}
-			else upgradeLevel = "";
 
 			if (itemName.match(/[0-4]/g)) errorstatus ="excessNumbers:" + curItem; //verifying there's no excessive numbers left in the item name
 

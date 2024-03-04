@@ -182,7 +182,7 @@
 			"precision":"ring of accuracy",
 			"elements":"ring of elements",
 			"ring of energy":"ring of energy",
-			"charg":"ring of energy",
+			"g of recharg":"ring of energy",
 			"evas":"ring of evasion",
 			"ring of force":"ring of force",
 			"furr":"ring of furor",
@@ -264,8 +264,7 @@
 			"agres":"stone of aggression",
 			"stone of blast":"stone of blast",
 			"fear":"stone of fear",
-			"augm":"stone of augmentation",
-			"stone":"stone"
+			"augm":"stone of augmentation"
 		},
 		"miscconsumables":{
 			"ration of":"ration of food",

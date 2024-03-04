@@ -262,9 +262,10 @@ module.exports = {
 					};
 				}
 
-				if (!itemName.includes(beforeAutocorrectItemName)) autocorrectUsed = true;
+
 				if (itemCategory == "weapons") itemName = enchantment + itemName;
 				if (itemCategory == "armor") itemName += glyph;
+				if (!itemName.includes(beforeAutocorrectItemName)) autocorrectUsed = true;
 
 				if (!itemConfirmedValid && itemName) autocorrectLikelyInvalid.push(itemName);
 

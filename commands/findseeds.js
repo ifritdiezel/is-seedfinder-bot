@@ -147,6 +147,7 @@ module.exports = {
 		//items with non-english symbols cannot possibly be found, so such inputs can be discarded
 		//also only allows numbers 0-4: the only possible upgrade levels
 		if (!items.match(/^[a-z0-4+',\- ]*$/i)) errorstatus ="badSymbols";
+		if (!floors.match(/[0-9]/g)) errorstatus = "illegal";
 		if (items.includes("cursed")) errorstatus = "containsCursed";
 		if (items.includes("enchantment") && floors == 1) errorstatus = "floorOneEnchantment";
 		if (items.includes("shat") && floors == 1) errorstatus = "floorOneShatteredHoneypot";

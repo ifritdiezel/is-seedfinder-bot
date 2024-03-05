@@ -9,6 +9,7 @@
 			"haste":"potion of haste OR ring of haste",
 			"corrosion":"wand of corrosion OR armor of corrosion",
 			"force":"ring of force OR force cube",
+			"stone":"stone of ... OR armor of stone",
 			"blast":"wand of blast wave OR stone of blast OR wand of fireblast",
 			"ration":"wand of disintegration OR ration of food"
 	},
@@ -246,8 +247,7 @@
 			"map":"scroll of magic mapping",
 			"retrib":"scroll of retribution",
 			"terror":"scroll of terror",
-			"transm":"scroll of transmutation",
-			"scroll":"scroll"
+			"transm":"scroll of transmutation"
 		},
 		"stones":{
 			"enchant":"stone of enchantment",

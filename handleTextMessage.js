@@ -50,6 +50,7 @@ function handleError(status, message){
 		let confirmedCommandAttempt = false;
 
 		let floors = "";
+		natLangItemsArray = [];
 		let items = "";
 
 		//if you don't understand this that's fine probably
@@ -76,9 +77,10 @@ function handleError(status, message){
 					nowListingItems = true;
 					if (commandWord.includes(":") && commandWord.split(":")[1]) items += commandWord.split(":")[1];
 				}
-				else if (nowListingItems) items += commandWord;
+				else if (nowListingItems) natLangItemsArray.push(commandWord);
 			}
 		}
+		items = natLangItemsArray.join(" ");
 
 
 		if (items && floors) confirmedCommandAttempt = true;
@@ -157,10 +159,11 @@ function handleError(status, message){
 		items = items.replaceAll('’', "'");
 		items = items.replaceAll('.', ",");
 		items = items.replaceAll('\n', ","); //i have no idea how someone managed to sneak a newline in but it happened once
+		items = items.replaceAll(':', ''); //for multirange support
 
 		//items with non-english symbols cannot possibly be found, so such inputs can be discarded
 		//also only allows numbers 0-4: the only possible upgrade levels
-		if (!items.match(/^[a-z0-4+',\- ]*$/i)) errorstatus ="badSymbols";
+		if (!items.match(/^[a-z0-9+',\- ]*$/i)) errorstatus ="badSymbols";
 		if (items.includes("cursed")) errorstatus = "containsCursed";
 		if (items.includes("enchantment") && floors == 1) errorstatus = "floorOneEnchantment";
 		if (items.includes("shat") && floors == 1) errorstatus = "floorOneShatteredHoneypot";
@@ -177,12 +180,29 @@ function handleError(status, message){
 		let artifacts = []; //used to check if there are 2 of the same artifact. why not
 		let ambiguousitems = []; //holds items like "frost" that can result in 2 different items
 		let autocorrectLikelyInvalid = []; //holds all items that the autocorrect didn't match
+		let realItems = []; //everything that isn't a multirange parameter
 		let allItemsValid = true; //invalidated if autocorrect finds no match for an item
 		let autocorrectUsed = false;
 		let hasConsumable = false;
+		let hasMultirange = false;
+		let effectiveScanningDepth = floors;
 
-		items.split(',').forEach(element => {
+		for (let element of items.split(',')){
 			let curItem = element.trim();
+
+			if (curItem.startsWith("multirange")){
+				hasMultirange = true;
+				console.log(curItem);
+				let rangeFloorValue = curItem.split(" ")[1];
+				console.log(rangeFloorValue);
+				if (!rangeFloorValue || isNaN(rangeFloorValue) || rangeFloorValue < 1 || rangeFloorValue > 24) {
+					handleError("invalidRangeFloorNumber", message);
+					return;
+				}
+				effectiveScanningDepth = Math.max(rangeFloorValue, effectiveScanningDepth);
+				itemlist.push(curItem);
+				continue;
+			}
 
 			//if (curItem.startsWith('+') && curItem.length > 2) errorstatus = "startsWithPlus:"+ curItem;
 			let splitbyupgrades = curItem.split("+"); //item name, upgrade level
@@ -308,7 +328,10 @@ function handleError(status, message){
 			if (itemName.length > 30 || itemName.split(' ').length > 4) errorstatus = "unseparated:"+ curItem;
 			if (itemName.split(' ').length == 1 && itemName.length > 14) errorstatus = "missingSpaces:"+ curItem; //the longest allowed word is "disintegration"
 
-			if (curItem) itemlist.push(curItem);
+			if (curItem) {
+				itemlist.push(curItem);
+				realItems.push(curItem);
+			};
 
 			if (upgradeLevel > 2){
 				//counting how many rings of high level we're looking for
@@ -317,7 +340,7 @@ function handleError(status, message){
 					if (curItem.includes(ringname)) {
 						isRing = true;
 						if (maxupgradedrings) errorstatus = "tooManyHighRings";
-						if (floors < 17) errorstatus = "maxRingTooEarly";
+						if (effectiveScanningDepth < 17) errorstatus = "maxRingTooEarly";
 						maxupgradedrings++;
 						break;
 					}
@@ -327,7 +350,7 @@ function handleError(status, message){
 					if (curItem.includes(wandname)) {
 						if (maxupgradedwands) errorstatus = "tooManyHighWands";
 						if (hasQuestItem) errorstatus = "questItemAndWandmakerWand";
-						if (floors < 7) errorstatus = "maxWandTooEarly";
+						if (effectiveScanningDepth < 7) errorstatus = "maxWandTooEarly";
 						maxupgradedwands++;
 						break;
 					}
@@ -336,7 +359,7 @@ function handleError(status, message){
 				if ((upgradeLevel > 3) && !(isRing && (upgradeLevel == 4))) errorstatus = "overUpgraded:"+ curItem;
 
 			}
-		});
+		};
 
 
 		if (new Set(artifacts).size != artifacts.length) errorstatus = "twoOfTheSameartifact";
@@ -361,7 +384,7 @@ function handleError(status, message){
 			child['userId'] = userId;
 			child['instanceCode'] = instanceName;
 			child['floors'] = floors;
-			child['items'] = itemlist;
+			child['items'] = realItems;
 
 
 			let findBeginEmbeds = [{
@@ -399,7 +422,7 @@ function handleError(status, message){
 				}
 			);
 
-			if (floors == 1 && itemlist.length > 2) findBeginEmbeds.push(
+			if (effectiveScanningDepth == 1 && itemlist.length > 2) findBeginEmbeds.push(
 				{
 					color: embedColor,
 					description: "Floor 1 usually contains very few items. Raising the floor limit will make finding the seed much more likely."
@@ -410,7 +433,8 @@ function handleError(status, message){
 			initialReplyContent = `<:examine:1077978273583202445> Looking for ` + "a seed" +
 			(runesOn ? " __with Forbidden Runes on__" : "") + (barrenOn ? " __with Barren Lands on__" : "") +
 			` up to depth ${floors}`;
-			if (itemlist.length > 0) initialReplyContent += ` with item${itemlist.length > 1 ? "s" : ""}: ${itemlist.join(", ")}\n`
+			if (hasMultirange) initialReplyContent += ' (' + effectiveScanningDepth + ' multirange)';
+			if (realItems.length > 0) initialReplyContent += ` with item${realItems.length > 1 ? "s" : ""}: ${realItems.join(", ")}\n`
 			else initialReplyContent += " with any items at all. Easy!"
 
 			let initialreply = message.reply({
@@ -454,11 +478,11 @@ function handleError(status, message){
 						color: embedColor,
 						title: seedlist[0],
 						description: printAsCodeblock,
-						fields: [{name: 'Version', value: versionName, inline: true}, {name: 'Items', value: itemlist.join(", ") || "Any", inline: true}],
+						fields: [{name: 'Version', value: versionName, inline: true}, {name: 'Items', value: realItems.join(", ") || "Any", inline: true}],
 						footer: {text: `${instanceTracker.freeInstanceTracker()}. ${executionTimeTracker(startingTime)}`}
 					}]
 					else resultEmbedList = [{
-						description: `Request: ${itemlist.join(", ")} before floor ${floors}.`,
+						description: `Request: ${realItems.join(", ")} before floor ${effectiveScanningDepth}.`,
 						color: embedColor,
 						footer:{text:`${instanceTracker.freeInstanceTracker()}. ${executionTimeTracker(startingTime)}. Version: ${versionName}`}
 					}]

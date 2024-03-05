@@ -227,6 +227,7 @@ function handleError(status, message){
 				};
 
 				let bestLevenshteinMatch = "";
+				let bestLevenshteinCategory = "";
 				let lowestLevenshtein = itemName.length;
 
 				//just goes down through all the pieces one by one
@@ -237,6 +238,7 @@ function handleError(status, message){
 						let curLevenshtein = levenshtein(itemlists.autocorrectTypes[autocorrectType][autocorrectSample], itemName);
 						if (enableLevenshteinMatching && (curLevenshtein < lowestLevenshtein)) {
 							bestLevenshteinMatch = itemlists.autocorrectTypes[autocorrectType][autocorrectSample];
+							bestLevenshteinCategory = autocorrectType;
 							lowestLevenshtein = curLevenshtein;
 						}
 
@@ -257,6 +259,7 @@ function handleError(status, message){
 
 				if (!itemConfirmedValid && lowestLevenshtein < itemName.length && lowestLevenshtein < 3){
 					itemName = bestLevenshteinMatch;
+					itemCategory = bestLevenshteinCategory;
 					itemConfirmedValid = true;
 				}
 

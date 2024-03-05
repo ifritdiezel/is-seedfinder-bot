@@ -147,7 +147,7 @@ module.exports = {
 		//items with non-english symbols cannot possibly be found, so such inputs can be discarded
 		//also only allows numbers 0-4: the only possible upgrade levels
 		if (!items.match(/^[a-z0-4+',\- ]*$/i)) errorstatus ="badSymbols";
-		if (!floors.match(/[0-9]/g)) errorstatus = "illegal";
+		if (!((floors + "").match(/[0-9]/g))) errorstatus = "illegal"; //god knows how discord's arguments work
 		if (items.includes("cursed")) errorstatus = "containsCursed";
 		if (items.includes("enchantment") && floors == 1) errorstatus = "floorOneEnchantment";
 		if (items.includes("shat") && floors == 1) errorstatus = "floorOneShatteredHoneypot";
@@ -218,6 +218,7 @@ module.exports = {
 				};
 
 				let bestLevenshteinMatch = "";
+				let bestLevenshteinCategory = "";
 				let lowestLevenshtein = itemName.length;
 
 				//just goes down through all the pieces one by one
@@ -228,6 +229,7 @@ module.exports = {
 						let curLevenshtein = levenshtein(itemlists.autocorrectTypes[autocorrectType][autocorrectSample], itemName);
 						if (enableLevenshteinMatching && (curLevenshtein < lowestLevenshtein)) {
 							bestLevenshteinMatch = itemlists.autocorrectTypes[autocorrectType][autocorrectSample];
+							bestLevenshteinCategory = autocorrectType;
 							lowestLevenshtein = curLevenshtein;
 						}
 
@@ -248,6 +250,7 @@ module.exports = {
 
 				if (!itemConfirmedValid && lowestLevenshtein < itemName.length && lowestLevenshtein < 3){
 					itemName = bestLevenshteinMatch;
+					itemCategory = bestLevenshteinCategory;
 					itemConfirmedValid = true;
 				}
 

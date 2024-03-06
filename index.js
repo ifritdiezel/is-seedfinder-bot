@@ -43,8 +43,6 @@ for (const file of commandFiles) {
 
 client.once(Events.ClientReady, () => {
 	console.log('Ready!');
-	workingchannel = client.channels.cache.get('1071308340124200963');
-  	//workingchannel.send('What is it?');
 });
 
 

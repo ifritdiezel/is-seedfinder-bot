@@ -187,7 +187,7 @@ module.exports = {
 				}
 				effectiveScanningDepth = Math.max(rangeFloorValue, effectiveScanningDepth);
 				itemlist.push(curItem);
-				continue;
+				continue; //skips every check if the item is just multirange
 			}
 
 			//if (curItem.startsWith('+') && curItem.length > 2) errorstatus = "startsWithPlus:"+ curItem;

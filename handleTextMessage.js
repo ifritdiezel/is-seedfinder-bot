@@ -33,7 +33,7 @@ function handleError(status, message){
 	let errorcode = status.split(':')[0];
 	let baditem = status.split(':')[1];
 	console.log(`\x1b[1;33m■\x1b[0m finder: Rejecting request by ${message.author.username}. Error: ${errorcode}.`);
-		console.log('\x1b[1;33m■\x1b[0m finder: Faulty request: [PLACEHOLDER]');
+		console.log('\x1b[1;33m■\x1b[0m finder: Faulty request: '+message.content);
 		if (baditem) console.log('\x1b[1;33m■\x1b[0m finder: Bad item: ' + baditem);
 		message.reply(errorEmoji + " " + responses[errorcode] + (baditem ? `\nIncorrect item: **${baditem}**` : ""));
 		return true;

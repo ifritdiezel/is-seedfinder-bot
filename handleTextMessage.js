@@ -192,9 +192,7 @@ function handleError(status, message){
 
 			if (curItem.startsWith("multirange")){
 				hasMultirange = true;
-				console.log(curItem);
 				let rangeFloorValue = curItem.split(" ")[1];
-				console.log(rangeFloorValue);
 				if (!rangeFloorValue || isNaN(rangeFloorValue) || rangeFloorValue < 1 || rangeFloorValue > 24) {
 					handleError("invalidRangeFloorNumber", message);
 					return;

@@ -63,7 +63,7 @@ function handleError(status, message){
 				let nNextCommandWord = args[i+1] || "";
 				nNextCommandWord = nNextCommandWord.replace(/\D/g,'');
 
-				if (commandWord.includes("floor") || commandWord.includes("depth")){
+				if (commandWord.includes("floor") || commandWord.includes("depth") || commandWord.includes("before")){
 					if (commandWord.includes(":")) {
 						floors = commandWord.split(":")[1] || "";
 						floors = floors.replace(/\D/g,'');
@@ -95,8 +95,8 @@ function handleError(status, message){
 		var errorstatus = "";
 
 
-		let disableAutocorrect = messageContent.includes("disable_autocorrect");
-		messageContent = messageContent.replaceAll("disable_autocorrect", "")
+		let disableAutocorrect = messageContent.includes("disableautocorrect");
+		messageContent = messageContent.replaceAll("disableautocorrect", "")
 		let longScan = messageContent.includes("longscan");
 		messageContent = messageContent.replaceAll("longscan", "");
 		let runesOn = messageContent.includes("runeson");
@@ -107,18 +107,16 @@ function handleError(status, message){
 		messageContent = messageContent.replaceAll("darknesson", "");
 		let showConsumables = messageContent.includes("showconsumables");
 		messageContent = messageContent.replaceAll("showconsumables", "");
+		let uncurse = messageContent.includes("uncurse");
+		messageContent = messageContent.replaceAll("uncurse", "");
 
 		floors = floors || args[1];
-		console.log("floors: "+ floors);
 		if (!floors || isNaN(floors) || floors < 1 || floors > 24) {
 			handleError("invalidFloorsNumber", message);
 			return;
 		}
 
 		items = items || messageContent.slice("!findseeds".length + floors.length + 1);
-
-		console.log("items: " + items);
-
 
 		//the number of concurrent processes is capped to not overload the host
 		if (instanceTracker.full()){
@@ -152,19 +150,22 @@ function handleError(status, message){
 		if (runesOn) spawnflags += 'r';						//forbidden runes flag
 		if (barrenOn) spawnflags += 'b';					//barren lands flag
 		if (darknessOn) spawnflags += 'd';				//into darkness flag
+		if (uncurse) spawnflags += 'u';						//uncurse flag
 		// ->																			//show consumables flag is enabled conditionally below, near the child process spawning
 		if (!writeToFile) spawnflags += 'c';			//if attaching a file is not necessary, enable compact mode
 
 		//fixing some commonly misused symbols
 		items = items.replaceAll('’', "'");
 		items = items.replaceAll('.', ",");
+		items = items.replaceAll(';', ",");
 		items = items.replaceAll('\n', ","); //i have no idea how someone managed to sneak a newline in but it happened once
 		items = items.replaceAll(':', ''); //for multirange support
 
 		//items with non-english symbols cannot possibly be found, so such inputs can be discarded
 		//also only allows numbers 0-4: the only possible upgrade levels
 		if (!items.match(/^[a-z0-9+',\- ]*$/i)) errorstatus ="badSymbols";
-		if (items.includes("cursed")) errorstatus = "containsCursed";
+		if (items.includes("uncursed")) errorstatus = "containsUncursed";
+		else if (items.includes("cursed")) errorstatus = "containsCursed";
 		if (items.includes("enchantment") && floors == 1) errorstatus = "floorOneEnchantment";
 		if (items.includes("shat") && floors == 1) errorstatus = "floorOneShatteredHoneypot";
 		if (items.includes("energy crystal") && floors == 1) errorstatus = "floorOneAlchemy";

@@ -8,6 +8,8 @@ const responses = require('../responses.json');
 const itemlists = require('../itemlists.json');
 const instanceTracker = require('../utils/instancetracker.js');
 const { levenshtein } = require('../utils/levenshtein.js');
+const { parseItems } = require('../utils/parseitems.js');
+const { spawnInstance } = require('../utils/finderspawninstance.js');
 const embedColor = 0x2ee62e; //has to be hardcoded here because json won't take this value. sucks!
 
 function executionTimeTracker(stT){
@@ -83,10 +85,18 @@ module.exports = {
 			.setRequired(false) )
 		.addBooleanOption(option =>
 			option.setName('longscan')
-			.setDescription('Raises the seeds scanned to 10 million. Make sure you made no typos!')
+			.setDescription('Raises the seeds scanned to 10 million.')
+			.setRequired(false) )
+		.addBooleanOption(option =>
+			option.setName('uncurse')
+			.setDescription('Finds enough scrolls of remove curse to uncurse all requested items.')
 			.setRequired(false) )
     ,
 	async execute(interaction) {
+
+		let request = {
+			source: "slashcommand"
+		}
 
 		var errorstatus = "";
 
@@ -97,31 +107,32 @@ module.exports = {
 		}
 
 		//parsing options to normal variables for ease of use
-		let floors =  interaction.options.getInteger('floors');
-		let items = interaction.options.getString('items').toLowerCase().replace(/\s+/g,' ');
-		let userId = interaction.member.id;
+		request.floors =  interaction.options.getInteger('floors');
+		request.items = interaction.options.getString('items').toLowerCase().replace(/\s+/g,' ');
+		request.userId = interaction.member.id;
 
-		let longScan = interaction.options.getBoolean('longscan') ?? false;
+		request.longScan = interaction.options.getBoolean('longscan') ?? false;
 		//10x for floor 1, 2x for floors 2-4 and 1x for deeper floors
-		let seedstoscan = (floors<=5) ? minSeedsToScan*2 : minSeedsToScan;
-		if (floors == 1) seedstoscan = minSeedsToScan*10;
-		if (longScan) {
-			seedstoscan = 10000000;
-			if (instanceTracker.checkLongscanUser(userId)){
-					handleError("longScanOngoing", interaction);
-					return;
+		request.seedstoscan = (request.floors<=5) ? minSeedsToScan*2 : minSeedsToScan;
+		if (request.floors == 1) request.seedstoscan = minSeedsToScan*10;
+		if (request.longScan) {
+			request.seedstoscan = 10000000;
+			if (instanceTracker.checkLongscanUser(request.userId)){
+				handleError("longScanOngoing", interaction);
+				return;
 			}
 		}
 
-		let startingseed =  interaction.options.getInteger('starting_seed') ?? (Math.floor(Math.random() * (5429503678976-seedstoscan)));
-		let seedsToFind = interaction.options.getInteger('seeds_to_find') ?? defaultSeedsToFind;
-		let runesOn = interaction.options.getBoolean('runes_on') ?? false;
-		let barrenOn = interaction.options.getBoolean('barren_on') ?? false;
-		let darknessOn = interaction.options.getBoolean('darkness_on') ?? false;
-		let showConsumables = interaction.options.getBoolean('show_consumables') ?? false;
-		let disableAutocorrect = interaction.options.getBoolean('disable_autocorrect') ?? false;
+		request.startingseed =  interaction.options.getInteger('starting_seed') ?? (Math.floor(Math.random() * (5429503678976-request.seedstoscan)));
+		request.seedsToFind = interaction.options.getInteger('seeds_to_find') ?? defaultSeedsToFind;
+		request.runesOn = interaction.options.getBoolean('runes_on') ?? false;
+		request.barrenOn = interaction.options.getBoolean('barren_on') ?? false;
+		request.darknessOn = interaction.options.getBoolean('darkness_on') ?? false;
+		request.showConsumables = interaction.options.getBoolean('show_consumables') ?? false;
+		request.disableAutocorrect = interaction.options.getBoolean('disable_autocorrect') ?? false;
+		request.uncurse = interaction.options.getBoolean('uncurse') ?? false;
 
-		let writeToFile = (floors > 10) || showConsumables || seedsToFind > 1; //if the user is looking for 1 seed less than 10 floors, the output can fit in an embed without a file
+		 request.writeToFile = (request.floors > 10) || request.showConsumables || request.seedsToFind > 1; //if the user is looking for 1 seed less than 10 floors, the output can fit in an embed without a file
 		var startingTime = +new Date; //a timestamp of receiving the interaction, subtracted from ending timestamp to get execution time
 
 		//establishing how to address the user, mention or nickname
@@ -130,29 +141,34 @@ module.exports = {
 		if (interaction.member.presence) userOnMobile = interaction.member.presence.clientStatus.mobile;
 		else userOnMobile = false;
 
+		let instanceTest = await spawnInstance(request);
+		console.log(instanceTest);
+
 		//string of flags to pass to the process
 		var spawnflags = "-q";										//quiet mode enabled to only print seed codes to console
-		if (runesOn) spawnflags += 'r';						//forbidden runes flag
-		if (barrenOn) spawnflags += 'b';					//barren lands flag
-		if (darknessOn) spawnflags += 'd';				//into darkness flag
+		if (request.runesOn) spawnflags += 'r';						//forbidden runes flag
+		if (request.barrenOn) spawnflags += 'b';					//barren lands flag
+		if (request.darknessOn) spawnflags += 'd';				//into darkness flag
+		if (request.uncurse) spawnflags += 'u';						//uncurse flag
 		// ->																			//show consumables flag is enabled conditionally below, near the child process spawning
-		if (!writeToFile) spawnflags += 'c';			//if attaching a file is not necessary, enable compact mode
-
+		if (!request.writeToFile) spawnflags += 'c';			//if attaching a file is not necessary, enable compact mode
 
 		//fixing some commonly misused symbols
-		items = items.replaceAll('’', "'");
-		items = items.replaceAll('.', ",");
-		items = items.replaceAll('\n', ","); //i have no idea how someone managed to sneak a newline in but it happened once
-		items = items.replaceAll(':', ''); //for multirange support
+		request.items = request.items.replaceAll('’', "'");
+		request.items = request.items.replaceAll('.', ",");
+		request.items = request.items.replaceAll(';', ",");
+		request.items = request.items.replaceAll('\n', ","); //i have no idea how someone managed to sneak a newline in but it happened once
+		request.items = request.items.replaceAll(':', ''); //for multirange support
 
 		//items with non-english symbols cannot possibly be found, so such inputs can be discarded
 		//also only allows numbers 0-4: the only possible upgrade levels
-		if (!items.match(/^[a-z0-9+',\- ]*$/i)) errorstatus ="badSymbols";
-		if (!((floors + "").match(/[0-9]/g))) errorstatus = "illegal"; //god knows how discord's arguments work
-		if (items.includes("cursed")) errorstatus = "containsCursed";
-		if (items.includes("enchantment") && floors == 1) errorstatus = "floorOneEnchantment";
-		if (items.includes("shat") && floors == 1) errorstatus = "floorOneShatteredHoneypot";
-		if (items.includes("energy crystal") && floors == 1) errorstatus = "floorOneAlchemy";
+		if (!request.items.match(/^[a-z0-9+',\- ]*$/i)) errorstatus ="badSymbols";
+		if (!((request.floors + "").match(/[0-9]/g))) errorstatus = "illegal"; //god knows how discord's arguments work
+		if (request.items.includes("uncursed")) errorstatus = "containsUncursed";
+		else if (request.items.includes("cursed")) errorstatus = "containsCursed";
+		if (request.items.includes("enchantment") && request.floors == 1) errorstatus = "floorOneEnchantment";
+		if (request.items.includes("shat") && request.floors == 1) errorstatus = "floorOneShatteredHoneypot";
+		if (request.items.includes("energy crystal") && request.floors == 1) errorstatus = "floorOneAlchemy";
 		if (handleError(errorstatus, interaction)) return;
 
 
@@ -160,7 +176,7 @@ module.exports = {
 		//flags that get set during the iteration to discard broken inputs
 		var maxupgradedrings = 0;
 		var maxupgradedwands = 0;
-		var hasQuestItem = items.includes("corpse") || items.includes("dust") || items.includes("embers") || items.includes("rotberry") || items.includes("candle");
+		var hasQuestItem = request.items.includes("corpse") || request.items.includes("dust") || request.items.includes("embers") || request.items.includes("rotberry") || request.items.includes("candle");
 		let itemlist = []; //this will be the finalized array of items after all the corrections and checks
 		let baseRingsWands = []; //array of rings and wands without their upgrades. used for deck system checks
 		let artifacts = []; //used to check if there are 2 of the same artifact. why not
@@ -171,10 +187,10 @@ module.exports = {
 		let autocorrectUsed = false;
 		let hasConsumable = false;
 		let hasMultirange = false;
-		let effectiveScanningDepth = floors;
+		let effectiveScanningDepth = request.floors;
 
 		//items.split(',').forEach(element => {
-		for (let element of items.split(',')){
+		for (let element of request.items.split(',')){
 			let curItem = element.trim();
 
 			if (curItem.startsWith("multirange")){
@@ -218,7 +234,7 @@ module.exports = {
 			let beforeAutocorrectItemName = itemName;
 			let itemConfirmedValid = false;
 			let itemCategory = false; //only used in autocorrect checks
-			if (!disableAutocorrect) {
+			if (!request.disableAutocorrect) {
 
 				let enchantment = ""; //enchants and glyphs are always detected but only appended if the item type is right
 				for (let enchantmentname of Object.keys(itemlists.enchantments)){
@@ -357,27 +373,27 @@ module.exports = {
 		if (handleError(errorstatus, interaction)) return;
 
 		//finally acknowledging a valid request and assigning an output file to the instance
+		request.itemList = itemlist;
 		instanceName = instanceTracker.getNewInstanceName();
 		let outputfile = `scanresults/out${instanceName}.txt`;
 		console.log(`\x1b[32m■\x1b[0m finder: New request. Using file ${outputfile}.`);
-		if (longScan) instanceTracker.addLongscanUser(userId);
-		else if (autocorrectLikelyInvalid.length == 0 && !disableAutocorrect) seedstoscan *= 2;
+		if (request.longScan) instanceTracker.addLongscanUser(request.userId);
+		else if (autocorrectLikelyInvalid.length == 0 && !request.disableAutocorrect) request.seedstoscan *= 2;
 
-		if (!showConsumables && !hasConsumable) spawnflags += 's';	//hide consumables unless specifically asked for
-
+		if (!request.showConsumables && !hasConsumable) spawnflags += 's';	//hide consumables unless specifically asked for
 
 		fs.writeFileSync('in.txt', itemlist.join('\n'));
-		var child = spawn('java', ['-XX:+UnlockExperimentalVMOptions', '-XX:+EnableJVMCI', '-XX:-UseJVMCICompiler', '-jar', jarName, "-mode", "find", '-floors', floors, '-items', 'in.txt', '-output', outputfile, '-start', startingseed, '-end', startingseed + seedstoscan, '-seeds', seedsToFind, spawnflags]);
+		var child = spawn('java', ['-XX:+UnlockExperimentalVMOptions', '-XX:+EnableJVMCI', '-XX:-UseJVMCICompiler', '-jar', jarName, "-mode", "find", '-floors', request.floors, '-items', 'in.txt', '-output', outputfile, '-start', request.startingseed, '-end', request.startingseed + request.seedstoscan, '-seeds', request.seedsToFind, spawnflags]);
 
 		//the process is assigned all these custom values so they can be displayed in /instances
-		child['userId'] = userId;
+		child['userId'] = request.userId;
 		child['instanceCode'] = instanceName;
 		child['floors'] = effectiveScanningDepth;
 		child['items'] = realItems;
 
 
 		let findBeginEmbeds = [{
-			description: `${instanceTracker.freeInstanceTracker()}. Scanning: ${seedstoscan/1000}k. Starting at: ${startingseed}. Version: ${versionName}${autocorrectUsed ? ". Autocorrected":""}`,
+			description: `${instanceTracker.freeInstanceTracker()}. Scanning: ${request.seedstoscan/1000}k. Starting at: ${request.startingseed}. Version: ${versionName}${autocorrectUsed ? ". Autocorrected":""}`,
 			color: embedColor
 		}];
 
@@ -389,7 +405,7 @@ module.exports = {
 		if (showDeckLimitWarning) findBeginEmbeds.push(
 			{
 				color: 0xf5dd0a,
-				description: "Due to Shattered's deck system design it is nearly impossible to find more than 3 of the same ring or wand" + (floors < 15 ? ", especially for lower floors":"") + "."
+				description: "Due to Shattered's deck system design it is nearly impossible to find more than 3 of the same ring or wand" + (request.floors < 15 ? ", especially for lower floors":"") + "."
 			}
 		);
 
@@ -419,9 +435,9 @@ module.exports = {
 		);
 
 		//initial confirmation, lets the user and discord know the bot isn't dead
-		initialReplyContent = `<:examine:1077978273583202445> Looking for ` + "a seed" +
-		(runesOn ? " __with Forbidden Runes on__" : "") + (barrenOn ? " __with Barren Lands on__" : "") +
-		` up to depth ${floors}`;
+		initialReplyContent = `<:examine:1077978273583202445> Looking for ` + (request.seedsToFind > 1 ? request.seedsToFind + " seeds" : "a seed") +
+		(request.runesOn ? " __with Forbidden Runes on__" : "") + (request.barrenOn ? " __with Barren Lands on__" : "") +
+		` up to depth ${request.floors}`;
 		if (hasMultirange) initialReplyContent += ' (' + effectiveScanningDepth + ' multirange)';
 		if (realItems.length > 0) initialReplyContent += ` with item${realItems.length > 1 ? "s" : ""}: ${realItems.join(", ")}\n`
 		else initialReplyContent += " with any items at all. Easy!"
@@ -446,7 +462,7 @@ module.exports = {
 		var seedlist = [];
 		child.stdout.on('data', (data) => {
 			foundseeds++;
-			if (foundseeds > 0) {
+		if (!`${data}`.startsWith("[Controllers]")) {
 				seedlist.push(`${data}`);
 			}
 		});
@@ -454,7 +470,7 @@ module.exports = {
 		//when seedfinder dies for any reason (code 0: finished scanning the seed range, 130: terminated after finding enough seeds)
 		child.on('close', (code) => {
 			instanceTracker.freeInstanceName(child.instanceCode);
-			if (longScan) instanceTracker.removeLongscanUser(userId);
+			if (request.longScan) instanceTracker.removeLongscanUser(request.userId);
 
 			let printAsCodeblock = ""
 			try { const data = fs.readFileSync(outputfile, 'utf8'); printAsCodeblock = data.replaceAll("\n\n", "\n"); } //there's a rare case when multiple seeds are requested, but 1 is found and the bot produces a non-compact result. removing double newlines at least somewhat compacts it then
@@ -486,7 +502,7 @@ module.exports = {
 			// );
 
 			if (foundseeds > 0) interaction.channel.send({
-				content: `${seedlist.join("").includes("GAY")? "🏳️‍🌈" : "<:firepog:1077978284664561684>"} Done! Found ${foundseeds} matching seed${foundseeds > 1 ? "s" : ""} ${(runesOn | barrenOn | darknessOn) ? "(**__SOME CHALLENGES ON__**) " : ""}by ${username}'s request: ${seedlist.join(", ")}.${(userOnMobile && printAsCodeblock) ? " Long press the seed to copy it to clipboard!" : ""}`,
+				content: `${seedlist.join("").includes("GAY")? "🏳️‍🌈" : "<:firepog:1077978284664561684>"} Done! Found ${foundseeds} matching seed${foundseeds > 1 ? "s" : ""} ${(request.runesOn | request.barrenOn | request.darknessOn) ? "(**__SOME CHALLENGES ON__**) " : ""}by ${username}'s request: ${seedlist.join(", ")}.${(userOnMobile && printAsCodeblock) ? " Long press the seed to copy it to clipboard!" : ""}`,
 				files: !printAsCodeblock ? [outputfile] : [],
 				embeds: resultEmbedList
 			});
@@ -498,11 +514,11 @@ module.exports = {
 			//this if check looks unnecessary but it prevents the bot from false triggering on process kills from outside
 			else if (code == 0) {
 				initialreply.reply({
-					content: `<:soiled:1077978326695678032> No seeds match in scanned range requested by ${username}. __Try the same request again to scan more seeds__.${(autocorrectLikelyInvalid.length > 0 || disableAutocorrect) ? " Also check for misspellings/typos." :""}`,
+					content: `<:soiled:1077978326695678032> No seeds match in scanned range requested by ${username}. __Try the same request again to scan more seeds__.${(autocorrectLikelyInvalid.length > 0 || request.disableAutocorrect) ? " Also check for misspellings/typos." :""}`,
 					embeds: resultEmbedList
 				});
-				let floorsPerSecond = Math.round(seedstoscan / ((+new Date - startingTime) / 1000)-3)*floors  ;
-				if (!longScan) fs.appendFileSync('spslog.txt', '\n' + floorsPerSecond);
+				let floorsPerSecond = Math.round(request.seedstoscan / ((+new Date - startingTime) / 1000)-3)*request.floors  ;
+				if (!request.longScan) fs.appendFileSync('spslog.txt', '\n' + floorsPerSecond);
 			}
 		});
 

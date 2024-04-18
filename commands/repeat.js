@@ -1,12 +1,11 @@
 const { SlashCommandBuilder } = require('discord.js');
-const { spawn } = require('child_process');
-const fs = require('fs');
 const { instanceCap, defaultSeedsToFind, noPingRoleId, minSeedsToScan, jarName, ownerId, errorEmoji, enableLevenshteinMatching } = require('../config.json');
 let { versionName } = require('../config.json');
 if (!versionName) versionName = jarName;
 const responses = require('../responses.json');
 const itemlists = require('../itemlists.json');
 const instanceTracker = require('../utils/instancetracker.js');
+const lastRequestTracker = require('../utils/lastrequesttracker.js');
 const { levenshtein } = require('../utils/levenshtein.js');
 const { parseItems } = require('../utils/parseitems.js');
 const { spawnInstance } = require('../utils/finderspawninstance.js');
@@ -40,61 +39,8 @@ function handleError(status, interaction){
 
 module.exports = {
 	data: new SlashCommandBuilder()
-		.setName('findseeds')
-		.setDescription('Looks for seeds matching given criteria')
-    .addIntegerOption(option =>
-		   option.setName('floors')
-			.setDescription('How many depths to check for items')
-      .setRequired(true)
-      .setMinValue(1)
-      .setMaxValue(24) )
-    .addStringOption(option =>
-      option.setName('items')
-      .setDescription('List of items split by commas. See #info-usage for details')
-      .setRequired(true) )
-    .addIntegerOption(option =>
-      option.setName('starting_seed')
-     .setDescription('The number of the seed to start with. Can be found in detailed reports')
-     .setMinValue(0)
-		 .setMaxValue(5429503678975))
-		.addIntegerOption(option =>
- 		  option.setName('seeds_to_find')
- 			.setDescription('How many seeds the bot should try to find before stopping')
-      .setRequired(false)
-      .setMinValue(1)
-      .setMaxValue(10) )
-		.addBooleanOption(option =>
-			option.setName('runes_on')
-			.setDescription('Enable Forbidden Runes.')
-			.setRequired(false) )
-		.addBooleanOption(option =>
-			option.setName('darkness_on')
-			.setDescription('Enable Into Darkness.')
-			.setRequired(false) )
-		.addBooleanOption(option =>
-			option.setName('barren_on')
-			.setDescription('Enable Barren Lands.')
-			.setRequired(false) )
-		.addBooleanOption(option =>
-			option.setName('show_consumables')
-			.setDescription('Shows consumables. Forces the bot to attach report results as a file.')
-			.setRequired(false) )
-		.addBooleanOption(option =>
-			option.setName('disable_autocorrect')
-			.setDescription('The bot will no longer attempt to fix item names.')
-			.setRequired(false) )
-		.addBooleanOption(option =>
-			option.setName('longscan')
-			.setDescription('Raises the seeds scanned to 10 million.')
-			.setRequired(false) )
-		.addBooleanOption(option =>
-			option.setName('uncurse')
-			.setDescription('Finds enough scrolls of remove curse to uncurse all requested items.')
-			.setRequired(false) )
-		.addBooleanOption(option =>
-			option.setName('exact_upgrades')
-			.setDescription('Only detects items if their upgrade level exactly matches the specified one.')
-			.setRequired(false) )
+		.setName('repeat')
+		.setDescription('Repeats your previous request')
     ,
 	async execute(interaction) {
 
@@ -102,7 +48,16 @@ module.exports = {
 			source: "slashCommand"
 		}
 
+		if (!lastRequestTracker.getLastRequest(interaction.member.id)){
+			interaction.reply({ content: "You have no recent requests. These reset every bot restart.", ephemeral: true });
+			return;
+		}
+
 		var errorstatus = "";
+		request = lastRequestTracker.getLastRequest(interaction.member.id);
+		request.startingseed =  (Math.floor(Math.random() * (5429503678976-request.seedstoscan)));
+
+
 
 		//the number of concurrent processes is capped to not overload the host
 		if (instanceTracker.full()){
@@ -110,37 +65,10 @@ module.exports = {
 			return;
 		}
 
-		//parsing options to normal variables for ease of use
-		request.floors =  interaction.options.getInteger('floors');
-		request.items = interaction.options.getString('items').toLowerCase().replace(/\s+/g,' ');
-		request.userId = interaction.member.id;
-
-		request.longScan = interaction.options.getBoolean('longscan') ?? false;
-
 		if (instanceTracker.checkLongscanUser(request.userId)){
 			handleError("longScanOngoing", interaction)
 			return;
 		}
-
-		//10x for floor 1, 2x for floors 2-4 and 1x for deeper floors
-		request.seedstoscan = (request.floors<=5) ? minSeedsToScan*2 : minSeedsToScan;
-		if (request.floors == 1) request.seedstoscan = minSeedsToScan*10;
-		if (request.longScan) {
-			request.seedstoscan = 10000000;
-		}
-
-		if (!interaction.options.getInteger('starting_seed')) request.randomizedStartingSeed = true;
-		request.startingseed =  interaction.options.getInteger('starting_seed') ?? (Math.floor(Math.random() * (5429503678976-request.seedstoscan)));
-		request.seedsToFind = interaction.options.getInteger('seeds_to_find') ?? defaultSeedsToFind;
-		request.runesOn = interaction.options.getBoolean('runes_on') ?? false;
-		request.barrenOn = interaction.options.getBoolean('barren_on') ?? false;
-		request.darknessOn = interaction.options.getBoolean('darkness_on') ?? false;
-		request.showConsumables = interaction.options.getBoolean('show_consumables') ?? false;
-		request.disableAutocorrect = interaction.options.getBoolean('disable_autocorrect') ?? false;
-		request.uncurse = interaction.options.getBoolean('uncurse') ?? false;
-		request.exactUpgrades = interaction.options.getBoolean('exact_upgrades') ?? false;
-
-		request.writeToFile = (request.floors > 10) || request.showConsumables || request.seedsToFind > 1; //if the user is looking for 1 seed less than 10 floors, the output can fit in an embed without a file
 
 		//establishing how to address the user, mention or nickname
 		var username = (noPingRoleId && interaction.member.roles.cache.has(noPingRoleId)) ? interaction.user.username : `<@${interaction.member.id}>`;
@@ -238,7 +166,7 @@ module.exports = {
 			}
 			case "failure":{
 				initialreply.reply({
-					content: `<:soiled:1077978326695678032> No seeds match in scanned range requested by ${username}. ${(parsedItemList.autocorrectLikelyInvalid.length > 0 || request.disableAutocorrect) ? "Also check for misspellings/typos." :"Use /repeat to try a different range of seeds."}`,
+					content: `<:soiled:1077978326695678032> No seeds match in scanned range requested by ${username}. __Try the same request again to scan more seeds__.${(parsedItemList.autocorrectLikelyInvalid.length > 0 || request.disableAutocorrect) ? " Also check for misspellings/typos." :""}`,
 					embeds: resultEmbedList
 				});
 				break;

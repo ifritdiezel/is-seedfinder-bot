@@ -5,7 +5,7 @@ var instances = 0;
 
 
 var _instanceNameList = Array.from({length: instanceCap}, (x, i) => i);
-
+const allowedInstances = _instanceNameList.slice(0); //if you don't slice it it just makes a reference to the original array??????????
 
 exports.addLongscanUser = function(userid){
 	longscanUsers.push(userid);
@@ -27,7 +27,6 @@ exports.getInstanceList = function() {
 };
 
 exports.setInstanceList = function(newinstancelist) {
-  //validate the name...
   _instanceList = newinstancelist;
 };
 
@@ -35,12 +34,13 @@ exports.addInstance = function(instance){
 	_instanceList.push(instance)
 }
 
-exports.freeInstanceTracker = function(){
-  return `Free instances: ${_instanceNameList.length}`
+exports.freeInstanceTracker = function(reserve){
+	if (reserve) return `Free instances: ${_instanceNameList.length - 1}`
+  else return `Free instances: ${_instanceNameList.length}`
 }
 
 exports.full = function(){
-	return _instanceList.length >= instanceCap;
+	return _instanceList.length >= instanceCap || !_instanceNameList;
 }
 
 exports.instanceCounter = function(){
@@ -53,7 +53,8 @@ exports.getNewInstanceName = function(){
 
 exports.freeInstanceName = function(name){
 	//console.log("\x1b[32m■\x1b[0m tracker: returning instance " + name)
-	_instanceNameList.push(name);
+	if (allowedInstances.includes(name)) _instanceNameList.push(name);
+	else console.log("\x1b[32m■\x1b[0m tracker: discarding instance", name);
 	_instanceList = _instanceList.filter(iinstance => iinstance.instanceCode != name);
 	//console.log("\x1b[32m■\x1b[0m tracker: new instance list: " + _instanceNameList);
 }

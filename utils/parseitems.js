@@ -19,7 +19,8 @@ function parseItems (request) {
 		autocorrectUsed: false,
 		hasConsumable: false,
 		hasMultirange: false,
-		effectiveScanningDepth: request.floors
+		effectiveScanningDepth: request.floors,
+		warnings: []
 	}
 
 	//fixing some commonly misused symbols
@@ -31,7 +32,6 @@ function parseItems (request) {
 	request.items = request.items.replaceAll(':', ''); //for multirange support
 
 	//items with non-english symbols cannot possibly be found, so such inputs can be discarded
-	//also only allows numbers 0-4: the only possible upgrade levels
 	if (!request.items.match(/^[a-z0-9+',\- ]*$/i)) response.errorstatus ="badSymbols";
 	if (!((request.floors + "").match(/[0-9]/g))) response.errorstatus = "illegal"; //god knows how discord's arguments work
 	if (request.items.includes("uncursed")) response.errorstatus = "containsUncursed";
@@ -68,7 +68,7 @@ function parseItems (request) {
 
 		//magically shuffle the upgrade level from the start of the item to the end
 		if (curItem.startsWith('+')){
-			if (curItem[1] && curItem[1].match(/[0-4]/)) {
+			if (curItem[1] && curItem[1].match(/[0-9]/)) {
 				upgradeLevel = curItem[1].replaceAll(" ","");
 				itemName = curItem.slice(2).trim();
 			} else {
@@ -79,8 +79,8 @@ function parseItems (request) {
 
 		if (upgradeLevel.length > 1) response.errorstatus = "upgradesTooLong:" + curItem;
 
-		if (itemName.match(/[0-4]/g)) response.errorstatus ="excessNumbers:" + curItem; //verifying there's no excessive numbers left in the item name
-
+		if (itemName.match(/[0-9]/g) || (curItem.match(/[0-9]/g) && !curItem.includes("+"))) response.errorstatus ="excessNumbers:" + curItem; //verifying there's no excessive numbers left in the item name
+		if (response.errorstatus) return response;
 
 		let beforeAutocorrectItemName = itemName;
 		let itemConfirmedValid = false;
@@ -154,6 +154,12 @@ function parseItems (request) {
 
 			if (itemCategory == "weapons") itemName = enchantment + itemName;
 			if (itemCategory == "armor") itemName += glyph;
+			if (!itemCategory && (enchantment || glyph)) {
+				itemCategory = "enchantment";
+				itemName = enchantment || glyph || "";
+				itemConfirmedValid = true;
+			}
+
 			if (!itemName.includes(beforeAutocorrectItemName)) response.autocorrectUsed = true;
 
 			if (!itemConfirmedValid && itemName) response.autocorrectLikelyInvalid.push(itemName);
@@ -164,7 +170,7 @@ function parseItems (request) {
 
 			if (itemCategory == "wands" || itemCategory == "rings") response.baseRingsWands.push(itemName);
 
-			if (curItem.includes('+') && itemConfirmedValid && !["weapons", "armor", "wands", "rings", "onlyifupgraded"].includes(itemCategory)) response.errorstatus = "unupgradeableWithUpgrades:"+curItem;
+			if (curItem.includes('+') && itemConfirmedValid && !["weapons", "armor", "wands", "rings", "onlyifupgraded", "enchantment"].includes(itemCategory)) response.errorstatus = "unupgradeableWithUpgrades:"+curItem;
 
 		}
 
@@ -179,7 +185,6 @@ function parseItems (request) {
 		if (curItem.includes("+")) {
 			curItem = (itemName + " +" + upgradeLevel); //makes sure there's 1 space between the item name and level
 			if (curItem.includes("0")) curItem = itemName; //inputs with +0 in them are treated as just unupgraded items. sorry if you want a +0 specifically
-			if (itemlists.firstWordUpgradables.includes(itemName)) response.errorstatus = "wrongUpgradeSyntax:"+ curItem;
 		} else curItem = itemName;
 		if (itemName.length > 30 || itemName.split(' ').length > 4) response.errorstatus = "unseparated:"+ curItem;
 		if (itemName.split(' ').length == 1 && itemName.length > 14) response.errorstatus = "missingSpaces:"+ curItem; //the longest allowed word is "disintegration"
@@ -221,6 +226,14 @@ function parseItems (request) {
 	if (new Set(response.artifacts).size != response.artifacts.length) response.errorstatus = "twoOfTheSameartifact";
 
 	if (response.effectiveScanningDepth < 7 && response.hasQuestItem) response.errorstatus = "questItemTooEarly";
+
+	let counts = {};
+	let showDeckLimitWarning = false;
+	response.baseRingsWands.forEach(function (x) { counts[x] = (counts[x] || 0) + 1; });
+	for (let [key, value] of Object.entries(counts)) {if (value > 3) response.warnings.push("deckLimitRingsWands")}
+
+	response.autocorrectLikelyInvalid = response.autocorrectLikelyInvalid.filter(n => !response.ambiguousitems.includes(n)); //exclude all the items that are in the ambiguous list
+
 	return response;
 }
 

@@ -1,7 +1,6 @@
 {
 	"ringArray":["ring", "arcana","shooting","accuracy","elements","energy","evasion","force","furor","haste","might","tenacity","wealth"],
 	"wandArray":["wand", "missile","lightning","disint","fireb","f of corros","wave","living eart","d of frost","prism","ward","transfus","corruption","regrow"],
-	"firstWordUpgradables":["ring", "wand"],
 	"ambiguous":{
 			"horn":"horn of plenty OR armor of thorns",
 			"frost":"potion of frost OR wand of frost",
@@ -30,7 +29,7 @@
 		"luck":"lucky",
 		"grim":"grim",
 		"vamp":"vampiric",
-		"cor":"corrupting",
+		"corr":"corrupting",
 		"bloom":"blooming",
 
 		"sacrificial":"sacrificial",
@@ -68,9 +67,10 @@
 		"corrosion":"corrosion",
 		"displacement":"displacement",
 		"metabolism":"metabolism",
-		"multiplicity":"multiplicity",
+		"multi":"multiplicity",
 		"stench":"stench",
-		"overgrowth":"overgrowth",
+		"overg":"overgrowth",
+		"growth":"overgrowth",
 		"bulk":"bulk"
 	},
 	"onlyifupgraded":{
@@ -147,6 +147,7 @@
 			"leat":"leather armor",
 			"mail":"mail armor",
 			"male": "mail armor",
+			"chain a":"mail armor",
 			"scale":"scale armor",
 			"plate":"plate armor",
 			"armor":"armor"
@@ -173,7 +174,8 @@
 			"coruption":"wand of corruption",
 			"regrow":"wand of regrowth",
 
-			"blast":"wand of blast wave"
+			"blast":"wand of blast wave",
+			"wand":"wand"
 		},
 		"rings":{
 			"arc":"ring of arcana",
@@ -188,6 +190,7 @@
 			"ring of force":"ring of force",
 			"furr":"ring of furor",
 			"furor":"ring of furor",
+			"fury":"ring of furor",
 			"ring of haste":"ring of haste",
 			"happiness":"ring of haste",
 			"speed":"ring of haste",
@@ -197,7 +200,8 @@
 			"ring of strength":"ring of might",
 			"tenac":"ring of tenacity",
 			"weal":"ring of wealth",
-			"ring of luck":"ring of wealth"
+			"ring of luck":"ring of wealth",
+			"ring":"ring"
 		},
 		"artifacts":{
 			"tool":"alchemist's toolkit",
@@ -268,18 +272,24 @@
 		},
 		"miscconsumables":{
 			"ration of":"ration of food",
-			"rotb": "seed of rotberry",
-			"berry":"seed of rotberry",
-			"fruit":"seed of rotberry",
 			"food":"ration of food",
 			"pasty":"pasty",
 			"stylus":"arcane stylus",
 			"torch":"torch",
 			"crystal":"energy crystal",
 			"alchemical":"energy crystal",
+			"alchemy e":"energy crystal",
 			"shat":"shattered honeypot",
 			"ypot":"honeypot",
 			"honey":"honeypot"
+		},
+		"quest":{
+			"corpse":"corpse dust",
+			"dust":"corpse dust",
+			"rotb": "seed of rotberry",
+			"berry":"seed of rotberry",
+			"fruit":"seed of rotberry",
+			"embers":"elemental embers"
 		}
 	}
 }

@@ -15,10 +15,9 @@ module.exports = {
 
 		instanceList = instanceTracker.getInstanceList();
 		if (instanceList.length == 0){
-			await interaction.reply({ content: "There are no running instances." });
+			await interaction.reply({ content: "There are no running instances. ("+ instanceCap  + " free)" });
 			return;
 		}
-
 		let instanceListEmbed = new EmbedBuilder()
 			.setColor(embedColor)
 			.setTitle('Active instances')

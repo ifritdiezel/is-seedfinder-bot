@@ -4,26 +4,43 @@ const { instanceCap, defaultSeedsToFind, noPingRoleId, jarName, ownerId } = requ
 let { versionName } = require('../config.json');
 if (!versionName) versionName = jarName;
 const instanceTracker = require('./instancetracker.js');
+const lastRequestTracker = require('./lastrequesttracker.js');
 const { parseItems } = require('./parseitems.js');
 
 
-async function spawnInstance(request) {
+async function spawnInstance(request, premadeParsedItemList) {
+	request.seedsToFind = request.seedsToFind ?? defaultSeedsToFind;
+
 	return new Promise(function (resolve, reject) {
 		let response = {
 			responseType: "",
 			errorstatus: "",
 			seedList: [],
 			finderOutURL: "",
-			finderOut: ""
+			finderOut: "",
+			startingTime: +new Date,
+			endingTime: 0
 		}
 
-		parsedItemList = parseItems(request)
+		let parsedItemList = (premadeParsedItemList || parseItems(request))
 		request.itemList = parsedItemList.itemList;
+
 		if (parsedItemList.errorstatus) {
 			response.responseType = "itemError";
 			response.errorstatus = parsedItemList.errorstatus;
 			resolve(response);
 		}
+
+		if (request.longScan) {
+			request.seedstoscan = 10000000;
+			if (instanceTracker.checkLongscanUser(request.userId)){
+				response.errorstatus = "longScanOngoing";
+				response.responseType = "miscError"
+				resolve(response);
+			}
+		}
+
+		if (request.intent == "verify") resolve(response);
 
 		var spawnflags = "-q";														//quiet mode enabled to only print seed codes to console
 		if (request.runesOn) spawnflags += 'r';						//forbidden runes flag
@@ -34,10 +51,18 @@ async function spawnInstance(request) {
 		if (!request.writeToFile) spawnflags += 'c';			//if attaching a file is not necessary, enable compact mode
 
 		instanceName = instanceTracker.getNewInstanceName();
+		if(["slashCommand", "textCommand"].includes(request.source) && request.userId) lastRequestTracker.setLastRequest(request);
 		let outputfile = `scanresults/out${instanceName}.txt`;
 		console.log(`\x1b[32m■\x1b[0m finder: New request. Using file ${outputfile}.`);
 			if (request.longScan) instanceTracker.addLongscanUser(request.userId);
-			else if (parsedItemList.autocorrectLikelyInvalid.length == 0 && !request.disableAutocorrect) request.seedstoscan *= 2;
+
+			else if (parsedItemList.autocorrectLikelyInvalid.length == 0 && !request.disableAutocorrect && !request.bonusApplied) {
+				request.seedstoscan *= 2;
+				request.bonusApplied = true;
+			}
+
+
+			if (!request.showConsumables && !parsedItemList.hasConsumable) spawnflags += 's';	//hide consumables unless specifically asked for
 
 			fs.writeFileSync('in.txt', parsedItemList.itemList.join('\n'));
 			var child = spawn('java', ['-XX:+UnlockExperimentalVMOptions', '-XX:+EnableJVMCI', '-XX:-UseJVMCICompiler', '-jar', jarName, "-mode", "find", '-floors', request.floors, '-items', 'in.txt', '-output', outputfile, '-start', request.startingseed, '-end', request.startingseed + request.seedstoscan, '-seeds', request.seedsToFind, spawnflags]);
@@ -64,7 +89,7 @@ async function spawnInstance(request) {
 
 			//when seedfinder dies for any reason (code 0: finished scanning the seed range, 130: terminated after finding enough seeds)
 			child.on('close', (code) => {
-				console.log("success")
+				response.endingTime = +new Date;
 				instanceTracker.freeInstanceName(child.instanceCode);
 				if (request.longScan) instanceTracker.removeLongscanUser(request.userId);
 
@@ -88,16 +113,17 @@ async function spawnInstance(request) {
 
 					if (response.seedList.length > 0) response.responseType = "success"
 
-					else if (code == 1) {
+					else if (code == 1 || response.seedList.join("").toLowerCase().includes("error")) {
 						response.responseType = "internalError"
-						console.log(seedlist);
+						console.log(response.seedList);
 					}
 					//this if check looks unnecessary but it prevents the bot from false triggering on process kills from outside
 					else if (code == 0) {
 						response.responseType = "failure";
-						let floorsPerSecond = Math.round(request.seedstoscan / ((+new Date - startingTime) / 1000)-3)*request.floors  ;
+						let floorsPerSecond = Math.round(request.seedstoscan / ((+new Date - response.startingTime) / 1000)-3)*parsedItemList.effectiveScanningDepth  ;
 						if (!request.longScan) fs.appendFileSync('spslog.txt', '\n' + floorsPerSecond);
 					}
+					else response.responseType = "silence"
 					resolve(response);
 				});})
 

@@ -24,7 +24,7 @@
 	"twoOfTheSameartifact":"It is impossible to find 2 of the same artifact.",
 	"invalidFloorsNumber":"Specify a valid floor count, 1-24. Example: `!findseeds 4 glaive`",
 	"textCommandHelp":"Example: `!findseeds 4 glaive, dirk +2 barrenon`",
-	"upgradesTooLong":"Upgrade level for item too long. Missed comma or has item count (not findable)",
+	"upgradesTooLong":"Upgrade level for item too long. Missed comma or has item count (not findable). If looking for multiple items, just put the same item in twice.",
 	"illegal":"(;",
 	"invalidRangeFloorNumber":"Invalid subrange floors parameter. Floors must be 1-24 and there must be a comma after each subrange setting.\nExample: `glaive, multirange:4, might`"
 }

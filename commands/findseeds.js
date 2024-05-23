@@ -68,14 +68,6 @@ module.exports = {
 			.setDescription('Enable Forbidden Runes.')
 			.setRequired(false) )
 		.addBooleanOption(option =>
-			option.setName('darkness_on')
-			.setDescription('Enable Into Darkness.')
-			.setRequired(false) )
-		.addBooleanOption(option =>
-			option.setName('barren_on')
-			.setDescription('Enable Barren Lands.')
-			.setRequired(false) )
-		.addBooleanOption(option =>
 			option.setName('show_consumables')
 			.setDescription('Shows consumables. Forces the bot to attach report results as a file.')
 			.setRequired(false) )
@@ -117,7 +109,7 @@ module.exports = {
 
 		request.longScan = interaction.options.getBoolean('longscan') ?? false;
 
-		if (instanceTracker.checkLongscanUser(request.userId)){
+		if (request.longScan && instanceTracker.checkLongscanUser(request.userId)){
 			handleError("longScanOngoing", interaction)
 			return;
 		}
@@ -133,8 +125,6 @@ module.exports = {
 		request.startingseed =  interaction.options.getInteger('starting_seed') ?? (Math.floor(Math.random() * (5429503678976-request.seedstoscan)));
 		request.seedsToFind = interaction.options.getInteger('seeds_to_find') ?? defaultSeedsToFind;
 		request.runesOn = interaction.options.getBoolean('runes_on') ?? false;
-		request.barrenOn = interaction.options.getBoolean('barren_on') ?? false;
-		request.darknessOn = interaction.options.getBoolean('darkness_on') ?? false;
 		request.showConsumables = interaction.options.getBoolean('show_consumables') ?? false;
 		request.disableAutocorrect = interaction.options.getBoolean('disable_autocorrect') ?? false;
 		request.uncurse = interaction.options.getBoolean('uncurse') ?? false;
@@ -148,7 +138,7 @@ module.exports = {
 		if (interaction.member.presence) request.userOnMobile = interaction.member.presence.clientStatus.mobile;
 		else request.userOnMobile = false;
 
-		parsedItemList = parseItems(request);
+		let parsedItemList = JSON.parse( JSON.stringify(parseItems(request)) ); //what the fuuuuuuuuuuuuck. what the heellllll
 
 		if (parsedItemList.errorstatus){
 			handleError(parsedItemList.errorstatus, interaction);
@@ -228,8 +218,12 @@ module.exports = {
 
 		switch (finderResult.responseType){
 			case "success":{
+				// resultEmbedList.push({
+				// 	description: `This seed is incompatible with 2.4 beta. The bot can't be updated before the full release.`,
+				// 	color: 0xf5dd0a
+				// })
 				interaction.channel.send({
-					content: `${finderResult.seedList.join("").includes("GAY")? "🏳️‍🌈" : "<:firepog:1077978284664561684>"} Done! Found ${finderResult.seedList.length} matching seed${finderResult.seedList.length > 1 ? "s" : ""} ${(request.runesOn | request.barrenOn | request.darknessOn) ? "(**__SOME CHALLENGES ON__**) " : ""}by ${username}'s request: ${finderResult.seedList.join(", ")}.${(request.userOnMobile && printAsCodeblock) ? " Long press the seed to copy it to clipboard!" : ""}`,
+					content: `${finderResult.seedList.join("").includes("GAY")? "🏳️‍🌈" : "<:firepog:1077978284664561684>"} Done! Found ${finderResult.seedList.length} matching seed${finderResult.seedList.length > 1 ? "s" : ""} ${(request.runesOn) ? "(**__Forbidden Runes on__**) " : ""}by ${username}'s request: ${finderResult.seedList.join(", ")}.${(request.userOnMobile && printAsCodeblock) ? " Long press the seed to copy it to clipboard!" : ""}`,
 					files: !printAsCodeblock ? [finderResult.finderOutURL] : [],
 					embeds: resultEmbedList
 

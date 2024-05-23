@@ -7,6 +7,14 @@ const instanceTracker = require('./instancetracker.js');
 const lastRequestTracker = require('./lastrequesttracker.js');
 const { parseItems } = require('./parseitems.js');
 
+function base26ToInteger(basestr) {
+		str = basestr.trim().replaceAll("-","").toLowerCase();
+    let result = 0;
+    for (let i = 0; i < str.length; i++) {
+        result = result * 26 + (str.charCodeAt(i) - 97);
+    }
+    return result;
+}
 
 async function spawnInstance(request, premadeParsedItemList) {
 	request.seedsToFind = request.seedsToFind ?? defaultSeedsToFind;
@@ -111,7 +119,13 @@ async function spawnInstance(request, premadeParsedItemList) {
 					// 	}
 					// );
 
-					if (response.seedList.length > 0) response.responseType = "success"
+					if (response.seedList.length > 0) {
+						response.responseType = "success";
+						if(["slashCommand", "textCommand"].includes(request.source) && request.userId) {
+							lastRequestTracker.setLastResult(request.userId, base26ToInteger(response.seedList[0]));
+							lastRequestTracker.setLastGlobalResult(base26ToInteger(response.seedList[0]));
+						}
+					}
 
 					else if (code == 1 || response.seedList.join("").toLowerCase().includes("error")) {
 						response.responseType = "internalError"

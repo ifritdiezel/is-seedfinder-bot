@@ -7,9 +7,10 @@
 	"unseparated": "The list of items needs to be separated with commas and only 1 upgrade parameter is allowed.",
 	"missingSpaces": "An item appears to be missing spaces in the name. See the item name list in <#1071310673960771674>.",
 	"overUpgraded": "Rings are the only item that can be +4 as a reward from Imp. Other ones are limited to +3.",
+	"overUpgraded+3": "Weapons and armor can only spawn at levels up to +3.",
 	"startsWithPlus": "Sorry, the upgrade level has to be *after* the item name. For example: `shortsword +2` or `mail armor of affection +3`.",
-	"tooManyHighRings":"It's only possible to find one ring of +3 and above as a reward from Imp.",
-	"tooManyHighWands":"It's only possible to find one wand above +2 as a reward from the Wandmaker.",
+	"tooManyHighRings":"It's only possible to find one +3/+4 ring as a reward from Imp.",
+	"tooManyHighWands":"It's only possible to find one +3 wand as a reward from the Wandmaker.",
 	"questItemAndWandmakerWand":"You cannot get both a +3 wand and a Wandmaker quest item.",
 	"maxRingTooEarly":"You can only get +3 and above rings from the Imp, who spawns on depths 17-19.",
 	"maxWandTooEarly":"You can only get +3 wands from the Wandmaker, who spawns on depths 7-9.",
@@ -26,5 +27,6 @@
 	"textCommandHelp":"Example: `!findseeds 4 glaive, dirk +2 barrenon`",
 	"upgradesTooLong":"Upgrade level for item too long. Missed comma or has item count (not findable). If looking for multiple items, just put the same item in twice.",
 	"illegal":"(;",
-	"invalidRangeFloorNumber":"Invalid subrange floors parameter. Floors must be 1-24 and there must be a comma after each subrange setting.\nExample: `glaive, multirange:4, might`"
+	"invalidRangeFloorNumber":"Invalid multirange. Floors must be 1-24 and there must be a comma after each subrange setting.\nExample: `glaive, multirange:4, might`",
+	"multiRangeHelp":"To use multiple ranges, add `multirange x` where x is a floor to the list of items. All items after the multirange will be requested to appear before the set floor. Multiple multiranges are allowed."
 }

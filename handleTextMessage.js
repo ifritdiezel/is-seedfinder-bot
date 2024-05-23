@@ -54,6 +54,11 @@ function handleError(status, message){
 		if (message.member.presence) request.userOnMobile = message.member.presence.clientStatus.mobile;
 		else request.userOnMobile = false;
 
+		if (args.length == 1 && message.content.includes("help")) {
+			handleError("textCommandHelp", message);
+			return;
+		}
+
 		if (args.length == 1 && (args[0].includes("repeat") || args[0].includes("retry") || args[0].includes("redo"))) {
 			if (!lastRequestTracker.getLastRequest(request.userId)){
 				message.reply("You have no recent requests. These reset every bot restart.");
@@ -63,7 +68,11 @@ function handleError(status, message){
 			//always randomize the seed for repeats, preset starting seeds would return the exact same results every time
 			request.startingseed =  (Math.floor(Math.random() * (5429503678976-request.seedstoscan)));
 		}
-		else	{
+		else
+		{
+
+			let confirmedCommandAttempt = false;
+
 			request.disableAutocorrect = messageContent.includes("disableautocorrect");
 			messageContent = messageContent.replaceAll("disableautocorrect", "")
 			request.longScan = messageContent.includes("longscan");
@@ -80,43 +89,75 @@ function handleError(status, message){
 			messageContent = messageContent.replaceAll("uncurse", "");
 			request.exactUpgrades = messageContent.includes("exactupgrades");
 			messageContent = messageContent.replaceAll("exactupgrades", "");
+
 			messageContent = messageContent.replaceAll("find seed", "findseed");
+			confirmedCommandAttempt = messageContent.includes("findseed");
 
-			args = messageContent.split(" ");
 
-			let confirmedCommandAttempt = false;
+			args = messageContent.replaceAll(";", ":").replaceAll(":", " ").replace(/\s+/g,' ').split(" ");
 
 			let floors = "";
 			natLangItemsArray = [];
 			let items = "";
+			let floorParameters = 0;
+			let itemParameters = 0;
 
-			//if you don't understand this that's fine probably
 			let nowListingItems = false;
+
 			if (enableTextCmdNaturalLanguage){
+				let nextIsFloors = false;
+				let listingItems = false;
 				for (let i = 0; i < args.length; i++){
 					let commandWord = args[i];
-					let nPreviousCommandWord = args[i-1] || "";
-					nPreviousCommandWord = nPreviousCommandWord.replace(/\D/g,'');
-					let nNextCommandWord = args[i+1] || "";
-					nNextCommandWord = nNextCommandWord.replace(/\D/g,'');
 
-					if (commandWord.includes("floor") || commandWord.includes("depth") || commandWord.includes("before")){
-						if (commandWord.includes(":")) {
-							floors = commandWord.split(":")[1] || "";
-							floors = floors.replace(/\D/g,'');
-						}
-						if (nPreviousCommandWord && !isNaN(nPreviousCommandWord)) floors = nPreviousCommandWord;
-						else if (nNextCommandWord && !isNaN(nNextCommandWord)) floors = nNextCommandWord;
-						nowListingItems = false;
+
+					if (confirmedCommandAttempt && i == 0) continue;
+
+					if (commandWord.includes("before") || commandWord.includes("under")) continue;
+
+					if (commandWord.includes("floor") || commandWord.includes("depth")) {
+						nextIsFloors = true;
+						listingItems = false;
+						floorParameters++;
+						continue;
 					}
 
-					else if (commandWord.includes("item") || commandWord.includes("request")){
-						nowListingItems = true;
-						if (commandWord.includes(":") && commandWord.split(":")[1]) items += commandWord.split(":")[1];
+					if (commandWord.includes("item") || commandWord.includes("request")) {
+						listingItems = true;
+						nextIsFloors = false;
+						itemParameters++;
+						continue;
 					}
-					else if (nowListingItems) natLangItemsArray.push(commandWord);
+
+					if (confirmedCommandAttempt && i == 1){
+							if (commandWord.match(/[0-9]/g)) {
+								floors = commandWord;
+								listingItems = true;
+								floorParameters++;
+							}
+							else {
+								natLangItemsArray.push(commandWord)
+								listingItems = true;
+							};
+							continue;
+					}
+
+					if (nextIsFloors){
+						floors = commandWord;
+						nextIsFloors = false;
+						listingItems = true;
+						continue;
+					}
+
+					if (listingItems) natLangItemsArray.push(commandWord);
 				}
 			}
+
+			if (floorParameters > 1 || itemParameters > 1){
+				handleError("multiRangeHelp", message);
+				return;
+			}
+
 			items = natLangItemsArray.join(" ");
 
 
@@ -129,6 +170,7 @@ function handleError(status, message){
 				handleError("textCommandHelp", message);
 				return;
 			}
+
 			var errorstatus = "";
 
 			request.floors = floors || args[1];
@@ -140,7 +182,7 @@ function handleError(status, message){
 			request.seedstoscan = (floors<=5) ? minSeedsToScan*2 : minSeedsToScan;
 			if (floors == 1) request.seedstoscan = minSeedsToScan*10;
 
-			request.items = items || messageContent.slice("!findseeds".length + floors.length + 1);
+			request.items = items;
 
 			request.startingseed =  (Math.floor(Math.random() * (5429503678976-request.seedstoscan)));
 			request.randomizedStartingSeed = true;

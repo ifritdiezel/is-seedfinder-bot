@@ -29,6 +29,10 @@ if (config.versionName.startsWith("2.0") || config.versionName.startsWith("1.4")
 	console.log("\x1b[31m■\x1b[0m This bot version is incompatible with this seedfinder version due to argument changes.");
 }
 
+if (config.scanresultServer){
+	require('/home/user/Desktop/server/seedfinderhttp/index.js')
+}
+
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildPresences, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] });
 
 client.commands = new Collection();

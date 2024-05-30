@@ -35,6 +35,7 @@ function parseItems (request) {
 	request.items = request.items.replaceAll(';', ",");
 	request.items = request.items.replaceAll('\n', ","); //i have no idea how someone managed to sneak a newline in but it happened once
 	request.items = request.items.replaceAll(':', ''); //for multirange support
+	request.items = request.items.replaceAll('upgraded', '+');
 
 	//items with non-english symbols cannot possibly be found, so such inputs can be discarded
 	if (!request.items.match(/^[a-z0-9+',\- ]*$/i)) throwError("badSymbols");
@@ -48,6 +49,7 @@ function parseItems (request) {
 
 	for (let element of request.items.split(',')){
 		let curItem = element.trim();
+
 		if (curItem.includes("item")) continue;
 
 		if (curItem.startsWith("multirange")){
@@ -163,7 +165,7 @@ function parseItems (request) {
 				};
 			}
 
-			if (!itemConfirmedValid && lowestLevenshtein < itemName.length && lowestLevenshtein < 3){
+			if (!itemConfirmedValid && lowestLevenshtein < itemName.length - 2 && lowestLevenshtein < 3){
 				itemName = bestLevenshteinMatch;
 				itemCategory = bestLevenshteinCategory;
 				itemConfirmedValid = true;

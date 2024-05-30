@@ -77,6 +77,7 @@ function handleError(status, message){
 			messageContent = messageContent.replaceAll("disableautocorrect", "")
 			request.longScan = messageContent.includes("longscan");
 			messageContent = messageContent.replaceAll("longscan", "");
+			messageContent = messageContent.replaceAll(":true", "");
 			request.runesOn = messageContent.includes("runeson");
 			messageContent = messageContent.replaceAll("runeson", "");
 			request.barrenOn = messageContent.includes("barrenon");
@@ -109,11 +110,24 @@ function handleError(status, message){
 				let listingItems = false;
 				for (let i = 0; i < args.length; i++){
 					let commandWord = args[i];
-
+					let wordIsDigit = commandWord.replaceAll(".","").match(/[0-9]/g);
 
 					if (confirmedCommandAttempt && i == 0) continue;
 
-					if (commandWord.includes("before") || commandWord.includes("under")) continue;
+					if (commandWord.includes("before") || commandWord.includes("under") || commandWord.includes("with")) continue;
+					if (commandWord == "in" || commandWord == "by") continue;
+
+					let isChapterName = false;
+					for (let i = 1; i < 6; i++){
+						if (commandWord.startsWith(["sewer", "prison", "cave", "metropolis", "hall"][i-1])){
+							floors = (i * 5) - 1;
+							floorParameters++;
+							isChapterName = true;
+							nowListingItems = true;
+							continue;
+						}
+					}
+					if (isChapterName) continue;
 
 					if (commandWord.includes("floor") || commandWord.includes("depth")) {
 						nextIsFloors = true;
@@ -130,8 +144,8 @@ function handleError(status, message){
 					}
 
 					if (confirmedCommandAttempt && i == 1){
-							if (commandWord.match(/[0-9]/g)) {
-								floors = commandWord;
+							if (wordIsDigit) {
+								floors = commandWord.replaceAll(".","");
 								listingItems = true;
 								floorParameters++;
 							}
@@ -143,7 +157,7 @@ function handleError(status, message){
 					}
 
 					if (nextIsFloors){
-						floors = commandWord;
+						if (wordIsDigit) floors = commandWord.replaceAll(".","");
 						nextIsFloors = false;
 						listingItems = true;
 						continue;
@@ -151,11 +165,6 @@ function handleError(status, message){
 
 					if (listingItems) natLangItemsArray.push(commandWord);
 				}
-			}
-
-			if (floorParameters > 1 || itemParameters > 1){
-				handleError("multiRangeHelp", message);
-				return;
 			}
 
 			items = natLangItemsArray.join(" ");
@@ -166,6 +175,11 @@ function handleError(status, message){
 
 			if (!confirmedCommandAttempt) return;
 
+			if (floorParameters > 1 || itemParameters > 1){
+				handleError("multiRangeHelp", message);
+				return;
+			}
+
 			if (args.length == 1 || message.content.includes("help")) {
 				handleError("textCommandHelp", message);
 				return;
@@ -173,7 +187,7 @@ function handleError(status, message){
 
 			var errorstatus = "";
 
-			request.floors = floors || args[1];
+			request.floors = floors;
 			if (!floors || isNaN(floors) || floors < 1 || floors > 24) {
 				handleError("invalidFloorsNumber", message);
 				return;

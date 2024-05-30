@@ -2,7 +2,7 @@ const { SlashCommandBuilder } = require('discord.js');
 const { embedColor } = require('./findseeds.js');
 const instanceTracker = require('../utils/instancetracker.js');
 const { spawn } = require('child_process');
-const { instanceCap, ownerId } = require('../config.json')
+const { instanceCap, ownerId, modRoleId } = require('../config.json')
 
 module.exports = {
 	data:  new SlashCommandBuilder()
@@ -23,7 +23,7 @@ module.exports = {
 		let force = interaction.options.getBoolean('force') ?? false;
 		let id = interaction.options.getInteger('id') ?? false;
 
-		if (force && ownerId && interaction.member.id != ownerId){
+		if (force && ownerId && interaction.member.id != ownerId && !interaction.member.roles.cache.has(modRoleId)){
 			await interaction.reply({ content: "You don't have permission to use the **force** argument.", ephemeral: true });
 			return;
 		}

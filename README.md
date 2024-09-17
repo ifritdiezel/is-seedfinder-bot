@@ -1,4 +1,4 @@
-this project is shared for practical usage and archival purposes. i won't spend time on "code quality". open a pull request or gtfo
+this project is shared for practical usage and archival purposes. quality, serviceability and safety not guaranteed
 
 temporary readme, contact \@ifritdiezel on discord or open an issue for info
 

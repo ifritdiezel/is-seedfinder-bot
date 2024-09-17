@@ -25,6 +25,14 @@ module.exports = {
 				option.setName('darkness_on')
 				.setDescription('Enable Into Darkness.')
 				.setRequired(false) )
+			.addBooleanOption(option =>
+				option.setName('minimap')
+				.setDescription('Renders a minimap with emojis. Use minimap_flags to toggle features.')
+				.setRequired(false) )
+			.addStringOption(option =>
+				option.setName('minimap_flags')
+				.setDescription('(E)nemies/(I)tems/(T)errain/(N)one. Example: ET = terrain detail + enemies, I = just items')
+				.setRequired(false) )
 		 .addBooleanOption(option =>
 			 option.setName('barren_on')
 			 .setDescription('Enable Barren Lands.')
@@ -34,14 +42,28 @@ module.exports = {
 			 let runesOn = interaction.options.getBoolean('runes_on') ?? false;
 			 let barrenOn = interaction.options.getBoolean('barren_on') ?? false;
 			 let darknessOn = interaction.options.getBoolean('darkness_on') ?? false;
-			 var spawnflags = "-";											//quiet mode enabled to only print seed codes to console
+			 var spawnflags = "";											//quiet mode enabled to only print seed codes to console
 			 if (runesOn) spawnflags += 'r';						//forbidden runes flag
 			 if (barrenOn) spawnflags += 'b';						//barren lands flag
 			 if (darknessOn) spawnflags += 'd';					//into darkness flag
 
-			 var seedtoscan = interaction.options.getInteger('seed') ?? lastRequestTracker.getLastResult(interaction.member.id) ?? lastRequestTracker.getLastGlobalResult()  ?? null;
+			 let minimapflags = "";
+			 let minimapOn = interaction.options.getBoolean('minimap') ?? false;
+			 let userMinimapArgs = interaction.options.getString('minimap_flags') ?? null;
 
-			 if (!seedtoscan){
+			 if (userMinimapArgs) {
+			 	userMinimapArgs = userMinimapArgs.toLowerCase();
+			 	if (userMinimapArgs.includes("e")) minimapflags += "e";
+			 	if (userMinimapArgs.includes("i")) minimapflags += "i";
+			 	if (userMinimapArgs.includes("t")) minimapflags += "t";
+			 	if (userMinimapArgs.includes("n") || !minimapflags) minimapflags = "n";
+			 }
+			 else if (minimapOn) minimapflags = "eit";
+
+			 var seedtoscan = interaction.options.getInteger('seed') ?? lastRequestTracker.getLastResult(interaction.member.id) ?? lastRequestTracker.getLastGlobalResult()  ?? null;
+			 if (interaction.options.getInteger('seed') === 0) seedtoscan = 0;
+
+			 if (seedtoscan === null){
 				 interaction.reply(errorEmoji + " Couldn't find a previous finding result. Please use a seed number found in the beginning of each result.\nLetter seeds from the game are not usable on purpose. See FAQ for more details.");
 				 return;
 			 }
@@ -51,7 +73,11 @@ module.exports = {
 
 			 let filename = "ShPD-" + versionName + "-" + seedtoscan + ".txt";
 			 let outputfile = "scanresults/" + filename;
-			 var child = spawn('java', ['-jar', jarName, "-mode", "scan", '-seed', seedtoscan, '-output', outputfile, spawnflags]);
+
+			 let childargs = ['-jar', jarName, "-mode", "scan", '-seed', seedtoscan, '-output', outputfile];
+			 if (spawnflags) childargs.push('-'+spawnflags);
+			 if (minimapOn || minimapflags) {childargs.push("-minimap"); childargs.push(minimapflags);}
+			 var child = spawn('java', childargs);
 
 			 child.on('close', (code) => {
 				 interaction.reply({

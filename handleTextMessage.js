@@ -170,12 +170,12 @@ function handleError(status, message){
 			items = natLangItemsArray.join(" ");
 
 
-			if (items && floors) confirmedCommandAttempt = true;
+			if (messageContent.includes("item") && floors) confirmedCommandAttempt = true;
 			if (args[0].includes("findseed") ) confirmedCommandAttempt = true;
 
 			if (!confirmedCommandAttempt) return;
 
-			if (floorParameters > 1 || itemParameters > 1){
+			if (floorParameters > 1 && itemParameters > 1){
 				handleError("multiRangeHelp", message);
 				return;
 			}
@@ -188,8 +188,8 @@ function handleError(status, message){
 			var errorstatus = "";
 
 			request.floors = floors;
-			if (!floors || isNaN(floors) || floors < 1 || floors > 24) {
-				handleError("invalidFloorsNumber", message);
+			if ((!floors || isNaN(floors) || floors < 1 || floors > 24)) {
+				//handleError("invalidFloorsNumber", message);
 				return;
 			}
 
@@ -298,6 +298,10 @@ function handleError(status, message){
 
 		switch (finderResult.responseType){
 			case "success":{
+				resultEmbedList.push({
+					description: `**Might be incompatible with 2.5.0 beta!**\nThe code will not be available until release and can't be updated.`,
+					color: 0xf5dd0a
+				})
 				message.channel.send({
 					content: `${finderResult.seedList.join("").includes("GAY")? "🏳️‍🌈" : "<:firepog:1077978284664561684>"} Done! Found ${finderResult.seedList.length} matching seed${finderResult.seedList.length > 1 ? "s" : ""} ${(request.runesOn | request.barrenOn | request.darknessOn) ? "(**__SOME CHALLENGES ON__**) " : ""}by ${username}'s request: ${finderResult.seedList.join(", ")}.${(request.userOnMobile && printAsCodeblock) ? " Long press the seed to copy it to clipboard!" : ""}`,
 					files: !printAsCodeblock ? [finderResult.finderOutURL] : [],

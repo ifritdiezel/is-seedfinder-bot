@@ -21,7 +21,7 @@ module.exports = {
 
 	async execute(interaction) {
 		let force = interaction.options.getBoolean('force') ?? false;
-		let id = interaction.options.getInteger('id') ?? false;
+		let id = interaction.options.getInteger('id');
 
 		if (force && ownerId && interaction.member.id != ownerId && !interaction.member.roles.cache.has(modRoleId)){
 			await interaction.reply({ content: "You don't have permission to use the **force** argument.", ephemeral: true });
@@ -33,7 +33,18 @@ module.exports = {
 		//console.log(instanceList);
 		let killcounter = 0;
 		let newinstancelist = []
-		if (id) {
+		if (id === null) {
+			for (let instance of instanceList){
+				if ((interaction.member.id == instance.userId) || force){
+					instance.kill('SIGINT');
+					killcounter++;
+				}
+			}
+			await interaction.reply({
+				content: killcounter ? `Stopped ${killcounter} instance${killcounter > 1 ? "s" : ""}.` : `You do not have any running instances.`,
+				embeds: [{color: embedColor, description:`Free instances: ${(instanceCap - instanceTracker.instanceCounter()) + killcounter}`}]
+		 });
+		} else {
 			let response = "No instance with this id found.";
 			for (let instance of instanceList){
 				if (instance.instanceCode == id){
@@ -49,18 +60,6 @@ module.exports = {
 			}
 			await interaction.reply({
 				content: response,
-				embeds: [{color: embedColor, description:`Free instances: ${(instanceCap - instanceTracker.instanceCounter()) + killcounter}`}]
-		 });
-
-		} else {
-			for (let instance of instanceList){
-				if ((interaction.member.id == instance.userId) || force){
-					instance.kill('SIGINT');
-					killcounter++;
-				}
-			}
-			await interaction.reply({
-				content: killcounter ? `Stopped ${killcounter} instance${killcounter > 1 ? "s" : ""}.` : `You do not have any running instances.`,
 				embeds: [{color: embedColor, description:`Free instances: ${(instanceCap - instanceTracker.instanceCounter()) + killcounter}`}]
 		 });
 		}

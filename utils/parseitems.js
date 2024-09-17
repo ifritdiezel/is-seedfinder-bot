@@ -128,7 +128,7 @@ function parseItems (request) {
 					let fullAutocorrectSample = itemlists.autocorrectTypes[autocorrectType][autocorrectSample];
 
 					let curLevenshtein = levenshtein(fullAutocorrectSample, itemName);
-					if (enableLevenshteinMatching && (curLevenshtein < lowestLevenshtein)) {
+					if (enableLevenshteinMatching && itemName.length > 5 && (curLevenshtein < lowestLevenshtein)) {
 						bestLevenshteinMatch = itemlists.autocorrectTypes[autocorrectType][autocorrectSample];
 						bestLevenshteinCategory = autocorrectType;
 						lowestLevenshtein = curLevenshtein;

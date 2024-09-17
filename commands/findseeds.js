@@ -85,7 +85,7 @@ module.exports = {
 			.setRequired(false) )
 		.addBooleanOption(option =>
 			option.setName('exact_upgrades')
-			.setDescription('Only detects items if their upgrade level exactly matches the specified one.')
+			.setDescription('Only turn on if you DO NOT want items MORE upgraded than specified, i.e. +1 and not +2 or +3.')
 			.setRequired(false) )
     ,
 	async execute(interaction) {
@@ -138,7 +138,7 @@ module.exports = {
 		if (interaction.member.presence) request.userOnMobile = interaction.member.presence.clientStatus.mobile;
 		else request.userOnMobile = false;
 
-		let parsedItemList = JSON.parse( JSON.stringify(parseItems(request)) ); //what the fuuuuuuuuuuuuck. what the heellllll
+		let parsedItemList = structuredClone(parseItems(request) );
 
 		if (parsedItemList.errorstatus){
 			handleError(parsedItemList.errorstatus, interaction);
@@ -219,7 +219,7 @@ module.exports = {
 		switch (finderResult.responseType){
 			case "success":{
 				// resultEmbedList.push({
-				// 	description: `This seed is incompatible with 2.4 beta. The bot can't be updated before the full release.`,
+				// 	description: `**Might be incompatible with 2.5.0 beta!**\nThe code will not be available until release and can't be updated.`,
 				// 	color: 0xf5dd0a
 				// })
 				interaction.channel.send({
